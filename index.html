@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIXED⚙️GEAR LAOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="f.css">
+</head>
+<body>
+    <nav>
+        <div class="logo">FIXED<span>GEAR</span></div>
+        <div class="nav-links">
+            <button id="open-modal-btn" class="btn-nav-add">➕ ເພີ່ມສິນຄ້າໃໝ່</button>
+            <button id="open-cart-btn" class="btn-nav-cart">
+                🛒 ກະຕ່າ <span id="cart-count">0</span>
+            </button>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="admin-modal" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h2>📥 ລົງຂາຍສິນຄ້າອະໄຫຼ່ໃໝ່</h2>
+                    <span id="close-modal-btn" class="close-btn">&times;</span>
+                </div>
+                <form id="product-form">
+                    <div class="form-group">
+                        <label for="p-name"><b>ຊື່ສິນຄ້າອະໄຫຼ່</b></label>
+                        <input type="text" id="p-name" placeholder="ຕົວຢ່າງ: ຈານໜ້າ Rinpoch R323 49T" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-price"><b>ລາຄາ (ກີບ)</b></label>
+                        <input type="number" id="p-price" placeholder="ຕົວຢ່າງ: 1200000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-img"><b>ອັບໂຫຼດຮູບພາບສິນຄ້າ</b></label>
+                        <input type="file" id="p-img" accept="image/*" required>
+                    </div>
+                    <button type="submit" class="btn-submit">➕ ຢືນຢັນລົງຂາຍ</button>
+                </form>
+            </div>
+        </div>
+        <div id="edit-modal" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h2>🛠️ ແກ້ໄຂຂໍ້ມູນສິນຄ້າອະໄຫຼ່</h2>
+                    <span id="close-edit-modal-btn" class="close-btn">&times;</span>
+                </div>
+                <form id="edit-product-form">
+                    <input type="hidden" id="edit-p-id">
+                    
+                    <div class="form-group">
+                        <label for="edit-p-name"><b>ຊື່ສິນຄ້າອະໄຫຼ່</b></label>
+                        <input type="text" id="edit-p-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-price"><b>ລາຄາ (ກີບ)</b></label>
+                        <input type="number" id="edit-p-price" required>
+                    </div>
+                    <button type="submit" class="btn-submit" style="background-color: #ffaa00; color: #121212;">💾 ບັນທຶກການແກ້ໄຂ</button>
+                </form>
+            </div>
+        </div>
+        <div id="detail-drawer" class="drawer-overlay">
+            <div class="drawer-box">
+                <div class="drawer-header">
+                    <h2>🔍 ລາຍລະອຽດສິນຄ້າ</h2>
+                    <span id="close-drawer-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="drawer-body" id="drawer-detail-content">
+                    </div>
+            </div>
+        </div>
+        <div id="cart-drawer" class="drawer-overlay">
+            <div class="drawer-box">
+                <div class="drawer-header">
+                    <h2>🛒 ກະຕ່າສິນຄ້າຂອງທ່ານ</h2>
+                    <span id="close-cart-drawer-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="drawer-body">
+                    <div id="cart-items-list">
+                        </div>
+                    <div class="cart-summary">
+                        <h3>ລວມທັງໝົດ: <span id="cart-total-price" style="color: #00a8cc;">0</span> ກີບ</h3>
+                        <button class="btn-submit" onclick="alert('ກຳລັງພາໄປໜ້າຊຳລະເງິນ!')" style="margin-top: 15px;">💳 ສັ່ງຊື້ສິນຄ້າ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="checkout-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h2>💳 ຊຳລະເງິນ ແລະ ຈັດສົ່ງ</h2>
+                    <span id="close-checkout-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="checkout-body">
+                    <div style="background-color: #2d2d2d; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a8cc;">
+                        <h4 style="margin-bottom: 5px; color: #aaa;">ຍອດລວມທີ່ຕ້ອງຊຳລະ:</h4>
+                        <h2 style="color: #00a8cc;"><span id="checkout-total-price">0</span> ກີບ</h2>
+                    </div>
+                    <form id="checkout-form">
+                        <div class="form-group">
+                            <label for="c-name"><b>ຊື່ ແລະ ນາມສະກຸນ ຜູ້ຮັບ</b></label>
+                            <input type="text" id="c-name" placeholder="ຕົວຢ່າງ: ສົມຊາຍ ໃຈດີ" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="c-phone"><b>ເບີໂທຕິດຕໍ່ (WhatsApp)</b></label>
+                            <input type="tel" id="c-phone" placeholder="ຕົວຢ່າງ: 020 XXXXXXXX" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="c-address"><b>ທີ່ຢູ່ຈັດສົ່ງ (ບ້ານ, ເມືອງ, ແຂວງ ຫຼື ຊື່ຂົນສົ່ງ)</b></label>
+                            <input type="text" id="c-address" placeholder="ຕົວຢ່າງ: ບ້ານຮ່ອງໄກ່ແກ້ວ, ເມືອງຈັນທະບູລີ, ນະຄອນຫຼວງວຽງຈັນ (ຝາກຂົນສົ່ງອານຸສິດ)" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><b>ຊ່ອງທາງການຊຳລະເງິນ</b></label>
+                            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="payment-method" value="bcel" checked id="pay-bcel"> ໂອນຜ່ານ BCEL One
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="payment-method" value="cod" id="pay-cod"> ເກັບເງິນປາຍທາງ (COD)
+                                </label>
+                            </div>
+                        </div>
+                        <div id="qrcode-section" style="text-align: center; background-color: #2d2d2d; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <p style="margin-bottom: 10px; font-size: 14px; color: #aaa;">Scan QR Code ດ້ານລຸ່ມນີ້เพื่อໂອນເງິນ</p>
+                            <img id="bcel-qr-img" src="" alt="BCEL One QR" style="width: 200px; height: 200px; background-color: white; padding: 10px; border-radius: 8px;">
+                            <p style="margin-top: 10px; font-size: 12px; color: #ffaa00;">*ໂອນແລ້ວກະລຸນາແນບຫຼັກຖານການໂອນ ຫຼື ກົດຢືນຢັນໄດ້ເລີຍ</p>
+                        </div>
+                        <div id="slip-upload-section" class="form-group">
+                            <label for="c-slip"><b>📸 ແນບຫຼັກຖານການໂອນເງິນ (ໃບສະລິບ BCEL One)</b></label>
+                            <input type="file" id="c-slip" accept="image/*">
+                        </div>
+                        <button type="submit" class="btn-submit" style="background-color: #28a745;">🚀 ຢືນຢັນການສັ່ງຊື້ສິນຄ້າ</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+        
+        <section id="store-section">
+            <h2 class="section-title">🚲 ລາຍການເຟມແລະອະໄຫຼ່ Fixed Gear</h2>
+            <div class="product-grid" id="product-display"></div>
+        </section>
+
+        <footer>
+            <div class="footer-content">
+                <p>© 2026 FIXED GEAR PARTS. ສະຫງວນລິຂະສິດ.</p>
+                <div class="contact-links">
+                    <span>📞 ຕິດຕໍ່ເຮົາ:</span>
+                    <a href="https://wa.me/2091142247" target="_blank" class="contact-icon wa">💬 WhatsApp</a>
+                    <a href="https://www.facebook.com/tom.tom.version.ii" target="_blank" class="contact-icon fb">🔵 Facebook</a>
+                </div>
+            </div>
+        </footer>
+    </div> <div id="toast-container" class="toast-container"></div>
+    <script src="f.js"></script>
+</body>
+</html>
