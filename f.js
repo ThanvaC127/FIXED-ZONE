@@ -1,3 +1,20 @@
+// 1. ສ້າງຂໍ້ມູນສິນຄ້າເລີ່ມຕົ້ນ (Default Products) ເພື່ອບໍ່ໃຫ້ລະບົບເອີຣີ (Error) ຕອນເປີດເວັບເທື່ອທຳອິດ
+const defaultProducts = [
+    {
+        id: 1,
+        name: "ເຟມ Fixed Gear TSUNAMI SNM100",
+        price: 2500000,
+        img: "https://placehold.co/600x400/2d2d2d/00a8cc?text=TSUNAMI+SNM100"
+    },
+    {
+        id: 2,
+        name: "ຈານໜ້າ Rinpoch R323 49T",
+        price: 1200000,
+        img: "https://placehold.co/600x400/2d2d2d/00a8cc?text=Rinpoch+49T"
+    }
+];
+
+// 2. ດຶງ Element ຕ່າງໆຈາກ DOM
 const editModal = document.getElementById('edit-modal');
 const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
 const editProductForm = document.getElementById('edit-product-form');
@@ -28,6 +45,7 @@ const cartItemsList = document.getElementById('cart-items-list');
 const cartTotalPrice = document.getElementById('cart-total-price');
 const cartCount = document.getElementById('cart-count');
 
+// 3. ລະບົບເປີດ-ປິດ Modal ແລະ Drawer
 openModalBtn.addEventListener('click', () => { adminModal.style.display = 'flex'; });
 closeModalBtn.addEventListener('click', () => { adminModal.style.display = 'none'; });
 closeDrawerBtn.addEventListener('click', () => { detailDrawer.style.display = 'none'; });
@@ -38,12 +56,16 @@ window.addEventListener('click', (e) => {
     if (e.target === adminModal) adminModal.style.display = 'none';
     if (e.target === detailDrawer) detailDrawer.style.display = 'none';
     if (e.target === cartDrawer) cartDrawer.style.display = 'none';
+    if (e.target === checkoutModal) checkoutModal.style.display = 'none';
+    if (e.target === editModal) editModal.style.display = 'none';
 });
 
+// 4. ຟັງຊັນຈັດຟໍແມັດເງິນ
 function formatMoney(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+// 5. ສະແດງລາຍການສິນຄ້າໜ້າເວັບ
 function renderProducts() {
     productDisplay.innerHTML = "";
     if (products.length === 0) {
@@ -76,6 +98,7 @@ function renderProducts() {
     updateCartBadge();
 }
 
+// 6. ເປີດເບິ່ງລາຍລະອຽດສິນຄ້າ
 function openDetailDrawer(id) {
     const product = products.find(p => p.id === id);
     if (!product) return;
@@ -92,6 +115,7 @@ function openDetailDrawer(id) {
     detailDrawer.style.display = 'flex';
 }
 
+// 7. ເພີ່ມສິນຄ້າເຂົ້າກະຕ່າ
 function addToCart(id) {
     const product = products.find(p => p.id === id);
     if (!product) return;
@@ -108,9 +132,11 @@ function addToCart(id) {
     showToast(`🎉 ເພີ່ມ "${product.name}" ເຂົ້າກະຕ່າແລ້ວ!`);
 }
 
+// 8. ສະແດງລາຍການໃນກະຕ່າສິນຄ້າ
 function renderCart() {
     cartItemsList.innerHTML = "";
     let total = 0;
+    
     if (cart.length === 0) {
         cartItemsList.innerHTML = `<div style="text-align:center; padding:30px; color:#666;">ກະຕ່າວ່າງເປົ່າ ❌</div>`;
         cartTotalPrice.innerText = "0";
@@ -162,6 +188,7 @@ function updateCartBadge() {
     cartCount.innerText = cart.length;
 }
 
+// 9. ລະບົບຟອມເພີ່ມສິນຄ້າໃໝ່ (Admin)
 productForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const nameInput = document.getElementById('p-name').value;
@@ -192,7 +219,6 @@ function deleteProduct(id) {
     if(confirm('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້?')) {
         products = products.filter(p => p.id !== id);
         localStorage.setItem('bike_products', JSON.stringify(products));
-        // ລຶບອອກຈາກກະຕ່າຄືກັນຖ້າມີ
         cart = cart.filter(item => item.id !== id);
         localStorage.setItem('bike_cart', JSON.stringify(cart));
         renderProducts();
@@ -201,7 +227,6 @@ function deleteProduct(id) {
 
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
-
     const toast = document.createElement('div');
     toast.className = `toast-box ${type}`;
     toast.innerHTML = `<span>${message}</span>`;
@@ -215,15 +240,15 @@ function showToast(message, type = 'success') {
         }, 500);
     }, 2500);
 }
-renderProducts();
 
+// 10. ລະບົບຊຳລະເງິນ (Checkout)
 function openCheckoutModal() {
     if (cart.length === 0) {
         showToast('❌ ກະຕ່າຂອງທ່ານຍັງວ່າງເປົ່າ ບໍ່ສາມາດຊຳລະເງິນໄດ້!', 'warning');
         return;
     }
 
-    cartDrawer.classList.remove('active');
+    cartDrawer.style.display = 'none';
 
     let total = cart.reduce((sum, item) => sum + item.price, 0);
     checkoutTotalPrice.innerText = formatMoney(total);
@@ -236,13 +261,16 @@ closeCheckoutBtn.addEventListener('click', () => {
     checkoutModal.style.display = 'none';
 });
 
-payBcel.addEventListener('change', () => { qrcodeSection.style.display = 'block'; });
-payCod.addEventListener('change', () => { qrcodeSection.style.display = 'none'; });
-
-window.addEventListener('click', (e) => {
-    if (e.target === checkoutModal) checkoutModal.style.display = 'none';
+payBcel.addEventListener('change', () => { 
+    qrcodeSection.style.display = 'block'; 
+    if(slipSection) slipSection.style.display = 'block';
+});
+payCod.addEventListener('change', () => { 
+    qrcodeSection.style.display = 'none'; 
+    if(slipSection) slipSection.style.display = 'none';
 });
 
+// 11. ສົ່ງອໍເດີ້ໄປ WhatsApp + ຝາກຮູບສະລິບ ImgBB
 checkoutForm.addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -267,19 +295,19 @@ checkoutForm.addEventListener('submit', function(e) {
             orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`;
         });
 
-        let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : '📦 ເgebnisປາຍທາງ (COD)';
+        let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : '📦 ເກັບເງິນປາຍທາງ (COD)';
 
         let whatsappMessage = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n`;
         whatsappMessage += `*ລາຍການສິນຄ້າ:*\n${orderListText}\n`;
-        whatsappMessage += `*ຍອດລວມທັງໝົດ:* ${formatMoney(total)} ກີບ\n`;
-        whatsappMessage += `*ຂໍ້ມູນຜູ້ຮັບ:*\n`;
+        whatsappMessage += `*ຍອດລວມທັງໝົດ:* ${formatMoney(total)} ກີບ\n\n`;
+        whatsappMessage += `*ข้อมูลຜູ້ຮັບ:*\n`;
         whatsappMessage += `• ຊື່: ${customerName}\n`;
         whatsappMessage += `• ເບີໂທ: ${customerPhone}\n`;
         whatsappMessage += `• ທີ່ຢູ່: ${customerAddress}\n`;
         whatsappMessage += `• ຊ່ອງທາງຈ່າຍເງິນ: ${methodText}\n`;
 
         if (slipUrl) {
-            whatsappMessage += `*ລິ້ງກວດສອບໃບສະລິບ:* ${slipUrl}\n`;
+            whatsappMessage += `• *ລິ້ງກວດສອບໃບສະລິບ:* ${slipUrl}\n`;
         }
 
         const myPhoneNumber = "2091142247";
@@ -312,7 +340,7 @@ checkoutForm.addEventListener('submit', function(e) {
                 const uploadedImageUrl = result.data.url;
                 sendOrderToWhatsApp(uploadedImageUrl);
             } else {
-                showToast("❌ ອັບໂຫຼດໃບສະລິບບໍ່ສຳເລັດ, ແຕ່ກຳລັງສົ່ງອໍເດີ້...", "warning");
+                showToast("❌ อັບໂຫຼດໃບສະລິບບໍ່ສຳເລັດ, ແຕ່ກຳລັງສົ່ງອໍເດີ້...", "warning");
                 sendOrderToWhatsApp();
             }
         })
@@ -337,6 +365,7 @@ if (slipSection) {
     });
 }
 
+// 12. ລະບົບແກ້ໄຂສິນຄ້າ
 function editProduct(id) {
     const product = products.find(p => p.id === id);
     if (!product) return;
@@ -350,12 +379,6 @@ function editProduct(id) {
 
 closeEditModalBtn.addEventListener('click', () => {
     editModal.style.display = 'none';
-});
-
-window.addEventListener('click', (e) => {
-    if (e.target === adminModal) adminModal.style.display = 'none';
-    if (e.target === checkoutModal) checkoutModal.style.display = 'none';
-    if (e.target === editModal) editModal.style.display = 'none';
 });
 
 editProductForm.addEventListener('submit', function(e) {
@@ -390,3 +413,6 @@ editProductForm.addEventListener('submit', function(e) {
     editModal.style.display = 'none';
     showToast("✏️ ອັບເດດຂໍ້ມູນສິນຄ້າສຳເລັດແລ້ວ!");
 });
+
+// ໂຫຼດສິນຄ້າຂຶ້ນມາສະແດງຕອນເປີດເວັບ
+renderProducts();
