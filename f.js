@@ -1,4 +1,3 @@
-// 🔐 Hash helper (SHA-256)
 async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -6,7 +5,7 @@ async function sha256(message) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-const ADMIN_PASSWORD_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+const ADMIN_PASSWORD_HASH = "d346252812cd8cd4f99265ded0171165522ed2012bcefcb19dbccf9a9b27d26b";
 const firebaseConfig = {
     apiKey: "AIzaSyCweJXhhQUzv1_TwKyAU-ftslMkh-fPRKU",
     authDomain: "fixed-project-644f3.firebaseapp.com",
@@ -20,7 +19,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// 2. ດຶງ Element ຕ່າງໆຈາກ DOM (ແກ້ໄຂ Bug ຕົວແປທັງໝົດແລ້ວ)
 let isAdmin = false; 
 let products = []; 
 let cart = JSON.parse(localStorage.getItem('bike_cart')) || [];
@@ -39,9 +37,9 @@ const payCod = document.getElementById('pay-cod');
 const productForm = document.getElementById('product-form');
 const productDisplay = document.getElementById('product-display');
 const adminModal = document.getElementById('admin-modal');
-const openModalBtn = document.getElementById('open-modal-btn'); // ປຸ່ມເພີ່ມສິນຄ້າ
+const openModalBtn = document.getElementById('open-modal-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
-const loginAdminBtn = document.getElementById('login-admin-btn'); // ປຸ່ມລັບແອັດມິນ
+const loginAdminBtn = document.getElementById('login-admin-btn');
 const detailDrawer = document.getElementById('detail-drawer');
 const closeDrawerBtn = document.getElementById('close-drawer-btn');
 const drawerContent = document.getElementById('drawer-detail-content');
@@ -52,7 +50,6 @@ const cartItemsList = document.getElementById('cart-items-list');
 const cartTotalPrice = document.getElementById('cart-total-price');
 const cartCount = document.getElementById('cart-count');
 
-// 3. ລະບົບເປີດ-ປິດ Modal ແລະ Drawer
 openModalBtn.addEventListener('click', () => { adminModal.style.display = 'flex'; });
 closeModalBtn.addEventListener('click', () => { adminModal.style.display = 'none'; });
 closeDrawerBtn.addEventListener('click', () => { detailDrawer.style.display = 'none'; });
@@ -71,7 +68,6 @@ function formatMoney(num) {
     return num ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "0";
 }
 
-// 🔴 4. ດຶງຂໍ້ມູນສິນຄ້າຈາກ Firebase ມາສະແດງອັດຕະໂນມັດ
 database.ref('products').on('value', (snapshot) => {
     const data = snapshot.val();
     products = [];
@@ -84,7 +80,6 @@ database.ref('products').on('value', (snapshot) => {
     renderProducts();
 });
 
-// 5. ສະແດງລາຍການສິນຄ້າໜ້າເວັບ (ກວດສອບສິດແອັດມິນ)
 function renderProducts() {
     productDisplay.innerHTML = "";
     if (products.length === 0) {
@@ -95,8 +90,6 @@ function renderProducts() {
     products.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
-        
-        // ປຸ່ມແກ້ໄຂ ແລະ ລຶບ ຈະໂຊສະເພາະຕອນລັອກອິນແອັດມິນສຳເລັດ
         const adminButtonsHTML = isAdmin ? `
             <button class="btn-edit" onclick="editProduct(${product.id})">🛠️ ແກ້ໄຂ</button>
             <button class="btn-delete" onclick="deleteProduct('${product.firebaseKey}')">ລຶບ</button>
@@ -123,24 +116,21 @@ function renderProducts() {
     updateCartBadge();
 }
 
-// 6. ເບິ່ງລາຍລະອຽດ
 function openDetailDrawer(id) {
     const product = products.find(p => Number(p.id) === Number(id));
     if (!product) return;
 
+    const descText = product.desc || 'ອະໄຫຼ່ລົດຖີບ Fixed Gear ຄຸນນະພາບສູງ ທົນທານ ເໝາະສຳລັບສາຍປັ່ນທຸກຮູບແບບ.';
     drawerContent.innerHTML = `
         <img class="drawer-img" src="${product.img}" alt="${product.name}">
         <div class="drawer-name">${product.name}</div>
         <div class="drawer-price">${formatMoney(product.price)} ກີບ</div>
-        <p style="color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
-            ອະໄຫຼ່ລົດຖີບ Fixed Gear ຂອງແທ້ 100% ຄຸນນະພາບສູງ ທົນທານ ເໝາະສຳລັບສາຍປັ່ນທຸກຮູບແບບ.
-        </p>
+        <p style="color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">${descText}</p>
         <button class="btn-submit" onclick="addToCart(${product.id}); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>
     `;
     detailDrawer.style.display = 'flex';
 }
 
-// 7. ລະບົບກະຕ່າສິນຄ້າ
 function addToCart(id) {
     const product = products.find(p => Number(p.id) === Number(id));
     if (!product) return;
@@ -196,7 +186,6 @@ function updateCartBadge() {
     cartCount.innerText = cart.length;
 }
 
-// 🔴 8. ລະບົບເພີ່ມສິນຄ້າໃໝ່ (ແກ້ໄຂ Bug ໃຫ້ລົງຂາຍໄດ້ 100%)
 productForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const nameInput = document.getElementById('p-name').value.trim();
@@ -257,7 +246,6 @@ productForm.addEventListener('submit', function(e) {
     });
 });
 
-// 🔴 9. ລຶບສິນຄ້າອອກຈາກ Firebase
 function deleteProduct(firebaseKey) {
     if(confirm('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້ອອກຈາກລະບົບອອນໄລນ໌?')) {
         database.ref(`products/${firebaseKey}`).remove()
@@ -279,7 +267,6 @@ function showToast(message, type = 'success') {
     }, 2500);
 }
 
-// 10. ລະບົບສັ່ງຊື້ສິນຄ້າ ແລະ ສົ່ງເຂົ້າ WhatsApp
 function openCheckoutModal() {
     if (cart.length === 0) {
         showToast('❌ ກະຕ່າຂອງທ່ານຍັງວ່າງເປົ່າ!', 'warning');
@@ -350,7 +337,6 @@ checkoutForm.addEventListener('submit', function(e) {
     }
 });
 
-// 🔴 11. ລະບົບແກ້ໄຂສິນຄ້າ Firebase
 function editProduct(id) {
     const product = products.find(p => Number(p.id) === Number(id));
     if (!product) return;
@@ -358,6 +344,27 @@ function editProduct(id) {
     document.getElementById('edit-p-id').value = product.firebaseKey;
     document.getElementById('edit-p-name').value = product.name;
     document.getElementById('edit-p-price').value = product.price;
+    document.getElementById('edit-p-desc').value = product.desc || '';
+
+    // Show current image preview
+    const preview = document.getElementById('edit-p-img-preview');
+    if (product.img) {
+        preview.src = product.img;
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
+
+    // Preview new image if selected
+    document.getElementById('edit-p-img').onchange = function() {
+        const file = this.files[0];
+        if (file) {
+            const r = new FileReader();
+            r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+            r.readAsDataURL(file);
+        }
+    };
+
     editModal.style.display = 'flex';
 }
 
@@ -366,20 +373,54 @@ editProductForm.addEventListener('submit', function(e) {
     const firebaseKey = document.getElementById('edit-p-id').value;
     const updatedName = document.getElementById('edit-p-name').value.trim();
     const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
+    const updatedDesc = document.getElementById('edit-p-desc').value.trim();
+    const imgFile = document.getElementById('edit-p-img').files[0];
 
     if (updatedPrice <= 0) {
         showToast("❌ ລາຄາຕ້ອງຫຼາຍກວ່າ 0 ກີບ!", "warning");
         return;
     }
 
-    database.ref(`products/${firebaseKey}`).update({
-        name: updatedName,
-        price: updatedPrice
-    })
-    .then(() => {
-        editModal.style.display = 'none';
-        showToast("✏️ ອັບເດດຂໍ້ມູນສິນຄ້າອອນໄລນ໌ສຳເລັດ!");
-    });
+    function saveUpdate(newImg = null) {
+        const updateData = { name: updatedName, price: updatedPrice, desc: updatedDesc };
+        if (newImg) updateData.img = newImg;
+
+        database.ref(`products/${firebaseKey}`).update(updateData)
+        .then(() => {
+            editModal.style.display = 'none';
+            document.getElementById('edit-p-img').value = '';
+            showToast("✏️ ອັບເດດຂໍ້ມູນສິນຄ້າອອນໄລນ໌ສຳເລັດ!");
+        });
+    }
+
+    if (imgFile) {
+        showToast('⏳ ກຳລັງປະມວນຜົນຮູບ...', 'warning');
+        function compressAndSave(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIZE = 800;
+                    let w = img.width, h = img.height;
+                    if (w > MAX_SIZE || h > MAX_SIZE) {
+                        if (w > h) { h = Math.round(h * MAX_SIZE / w); w = MAX_SIZE; }
+                        else { w = Math.round(w * MAX_SIZE / h); h = MAX_SIZE; }
+                    }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    let dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    if (dataUrl.length > 200 * 1024 * 1.37) dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+                    saveUpdate(dataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        compressAndSave(imgFile);
+    } else {
+        saveUpdate();
+    }
 });
 
 const slipSection = document.getElementById('slip-upload-section');
@@ -388,27 +429,64 @@ if (slipSection) {
     payCod.addEventListener('change', () => { qrcodeSection.style.display = 'none'; slipSection.style.display = 'none'; });
 }
 
-// 🔴 12. 🔐 ລະບົບປ້ອນລະຫັດຜ່ານແອັດມິນ (ຢູ່ Footer)
+const adminLoginModal = document.getElementById('admin-login-modal');
+const closeLoginModalBtn = document.getElementById('close-login-modal-btn');
+
 loginAdminBtn.addEventListener('click', () => {
     if (isAdmin) {
         isAdmin = false;
-        openModalBtn.style.display = 'none'; 
+        openModalBtn.style.display = 'none';
         loginAdminBtn.innerText = "🔐 ສຳລັບ Admin";
         renderProducts();
         showToast("🔒 ອອກຈາກລະບົບແອັດມິນແລ້ວ!");
     } else {
-        const password = prompt("🔑 ກະລຸນາປ້ອນລະຫັດຜ່ານແອັດມິນ:");
-        if (password === null) return;
-        sha256(password).then(hash => {
-            if (hash === ADMIN_PASSWORD_HASH) {
-                isAdmin = true;
-                openModalBtn.style.display = 'block'; 
-                loginAdminBtn.innerText = "🔓 ອອກຈາກແອັດມິນ (Logout)";
-                renderProducts();
-                showToast("🔓 ເຂົ້າລະບົບແອັດມິນສຳເລັດ!");
-            } else {
-                showToast("❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!", "warning");
-            }
-        });
+        showLoginView();
+        adminLoginModal.style.display = 'flex';
+        setTimeout(() => document.getElementById('admin-pw-input').focus(), 300);
     }
 });
+
+closeLoginModalBtn.addEventListener('click', () => { adminLoginModal.style.display = 'none'; });
+window.addEventListener('click', (e) => {
+    if (e.target === adminLoginModal) adminLoginModal.style.display = 'none';
+});
+
+// Allow Enter key to submit login
+document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitAdminLogin();
+});
+
+function showLoginView() {
+    document.getElementById('login-form-view').style.display = 'block';
+    document.getElementById('admin-pw-input').value = '';
+}
+function togglePwVisibility() {
+    const input = document.getElementById('admin-pw-input');
+    const eye = document.getElementById('toggle-pw-eye');
+    if (input.type === 'password') {
+        input.type = 'text';
+        eye.textContent = '🙈';
+    } else {
+        input.type = 'password';
+        eye.textContent = '👁️';
+    }
+}
+
+function submitAdminLogin() {
+    const password = document.getElementById('admin-pw-input').value;
+    if (!password) { showToast("❌ ກະລຸນາປ້ອນລະຫັດຜ່ານ!", "warning"); return; }
+    sha256(password).then(hash => {
+        if (hash === ADMIN_PASSWORD_HASH) {
+            isAdmin = true;
+            openModalBtn.style.display = 'block';
+            loginAdminBtn.innerText = "🔓 ອອກຈາກແອັດມິນ (Logout)";
+            adminLoginModal.style.display = 'none';
+            renderProducts();
+            showToast("🔓 ເຂົ້າລະບົບແອັດມິນສຳເລັດ!");
+        } else {
+            showToast("❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!", "warning");
+            document.getElementById('admin-pw-input').value = '';
+            document.getElementById('admin-pw-input').focus();
+        }
+    });
+}

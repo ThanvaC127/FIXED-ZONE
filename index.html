@@ -60,6 +60,17 @@
                         <label for="edit-p-price"><b>💰 ແກ້ໄຂລາຄາ (ກີບ)</b></label>
                         <input type="number" id="edit-p-price" required>
                     </div>
+                    <div class="form-group">
+                        <label for="edit-p-desc"><b>📝 ຄຳອະທິບາຍສິນຄ້າ</b></label>
+                        <textarea id="edit-p-desc" rows="3" placeholder="ຕົວຢ່າງ: ອະໄຫຼ່ລົດຖີບ Fixed Gear ຂອງແທ້ 100%..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-img"><b>📸 ປ່ຽນຮູບສິນຄ້າ (ຖ້າບໍ່ປ່ຽນໃຫ້ຫວ່າງໄວ້)</b></label>
+                        <input type="file" id="edit-p-img" accept="image/*">
+                        <div style="margin-top:10px;">
+                            <img id="edit-p-img-preview" src="" alt="preview" style="width:100%; max-height:180px; object-fit:cover; border-radius:6px; border:1px solid #444; display:none;">
+                        </div>
+                    </div>
                     <button type="submit" class="btn-submit" style="background-color: #ffaa00; color: #121212;">💾 ບັນທຶກການແກ້ໄຂ</button>
                 </form>
             </div>
@@ -142,6 +153,26 @@
             </div>
         </div>
         
+        <!-- Admin Login Modal -->
+        <div id="admin-login-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 380px;">
+                <div class="modal-header">
+                    <h2>🔐 Admin Login</h2>
+                    <span id="close-login-modal-btn" class="close-btn">&times;</span>
+                </div>
+                <div id="login-form-view">
+                    <div class="form-group">
+                        <label><b>🔑 ລະຫັດຜ່ານແອັດມິນ</b></label>
+                        <div style="position:relative;">
+                            <input type="password" id="admin-pw-input" placeholder="ປ້ອນລະຫັດຜ່ານ..." style="padding-right:45px;">
+                            <span id="toggle-pw-eye" onclick="togglePwVisibility()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;user-select:none;">👁️</span>
+                        </div>
+                    </div>
+                    <button class="btn-submit" onclick="submitAdminLogin()">🚀 ເຂົ້າລະບົບ</button>
+                </div>
+            </div>
+        </div>
+
         <div id="toast-container" class="toast-container"></div>
         
         <section id="store-section">
@@ -154,8 +185,8 @@
                 <p>© 2026 FIXED GEAR PARTS. ສະຫງວນລິຂະສິດ.</p>
                 <div class="contact-links">
                     <span>📞 ຕິດຕໍ່ເຮົາ:</span>
-                    <a href="https://wa.me/2091142247" target="_blank" class="contact-icon wa">💬 WhatsApp</a>
-                    <a href="https://www.facebook.com/share/18E66pP3Xf/?mibextid=wwXIfr" target="_blank" class="contact-icon fb">🔵 Facebook</a>
+                    <a href="https://wa.me/2091142247" target="_blank" class="contact-icon wa">WhatsApp</a>
+                    <a href="https://www.facebook.com/tom.tom.version.ii" target="_blank" class="contact-icon fb">Facebook</a>
                 </div>
                 <button id="login-admin-btn" style="background: none; border: none; color: #444; cursor: pointer; font-size: 11px; margin-top: 10px;">🔐 ສຳລັບ Admin</button>
             </div>
