@@ -32,18 +32,46 @@
                         <input type="text" id="p-name" placeholder="ຕົວຢ່າງ: ເຟມ TSUNAMI SNM100" required>
                     </div>
                     <div class="form-group">
+                        <label for="p-category"><b>🗂️ ເລືອກໝວດໝູ່ອະໄຫຼ່</b></label>
+                        <select id="p-category" required style="width:100%; padding:12px; background:#222; color:#fff; border:1px solid #444; border-radius:6px;">
+                            <option value="frame">🚲 ເຟມ (Frame)</option>
+                            <option value="crankset">⚙️ ຈານໜ້າ (Crankset)</option>
+                            <option value="wheelset">⭕ ລໍ້ (Wheelset)</option>
+                            <option value="other">🛠️ ອື່ນໆ (Others)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="p-price"><b>💰 ລາຄາ (ກີບ)</b></label>
                         <input type="number" id="p-price" placeholder="ຕົວຢ່າງ: 2500000" required>
                     </div>
                     <div class="form-group">
-                        <label for="p-img"><b>📸 ອັບໂຫຼດຮູບພາບສິນຄ້າ</b></label>
+                        <label for="p-img"><b>📸 ຮູບພາບຫຼັກ (ສະແດງໜ້າເວັບ) *</b></label>
                         <input type="file" id="p-img" accept="image/*" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-img2"><b>📸 ຮູບລາຍລະອຽດທີ 2 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="p-img2" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="p-img3"><b>📸 ຮູບລາຍລະອຽດທີ 3 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="p-img3" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="p-img4"><b>📸 ຮູບລາຍລະອຽດທີ 4 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="p-img4" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="p-img5"><b>📸 ຮູບລາຍລະອຽດທີ 5 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="p-img5" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="p-desc"><b>📝 ຄຳອະທິບາຍສິນຄ້າ (ທາງເລືອກ)</b></label>
+                        <textarea id="p-desc" rows="4" placeholder="ຂຽນລາຍລະອຽດສິນຄ້າ..."></textarea>
                     </div>
                     <button type="submit" class="btn-submit">🚀 ລົງຂາຍສິນຄ້າທັນທີ</button>
                 </form>
             </div>
         </div>
-
         <div id="edit-modal" class="modal-overlay">
             <div class="modal-box">
                 <div class="modal-header">
@@ -57,53 +85,65 @@
                         <input type="text" id="edit-p-name" required>
                     </div>
                     <div class="form-group">
+                        <label for="edit-p-category"><b>🗂️ ແກ້ໄຂໝວດໝູ່</b></label>
+                        <select id="edit-p-category" required style="width:100%; padding:12px; background:#222; color:#fff; border:1px solid #444; border-radius:6px;">
+                            <option value="frame">🚲 ເຟມ (Frame)</option>
+                            <option value="crankset">⚙️ ຈານໜ້າ (Crankset)</option>
+                            <option value="wheelset">⭕ ລໍ້ (Wheelset)</option>
+                            <option value="other">🛠️ ອື່ນໆ (Others)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="edit-p-price"><b>💰 ແກ້ໄຂລາຄາ (ກີບ)</b></label>
                         <input type="number" id="edit-p-price" required>
                     </div>
                     <div class="form-group">
                         <label for="edit-p-desc"><b>📝 ຄຳອະທິບາຍສິນຄ້າ</b></label>
-                        <textarea id="edit-p-desc" rows="3" placeholder="ຕົວຢ່າງ: ອະໄຫຼ່ລົດຖີບ Fixed Gear ຂອງແທ້ 100%..."></textarea>
+                        <textarea id="edit-p-desc" rows="4" placeholder="ຂຽນລາຍລະອຽດສິນຄ້າ..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="edit-p-img"><b>📸 ປ່ຽນຮູບສິນຄ້າ (ຖ້າບໍ່ປ່ຽນໃຫ້ຫວ່າງໄວ້)</b></label>
+                        <label for="edit-p-img"><b>📸 ປ່ຽນຮູບຫຼັກ (ທາງເລືອກ)</b></label>
                         <input type="file" id="edit-p-img" accept="image/*">
-                        <div style="margin-top:10px;">
-                            <img id="edit-p-img-preview" src="" alt="preview" style="width:100%; max-height:180px; object-fit:cover; border-radius:6px; border:1px solid #444; display:none;">
-                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-img2"><b>📸 ປ່ຽນຮູບທີ 2 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="edit-p-img2" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-img3"><b>📸 ປ່ຽນຮູບທີ 3 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="edit-p-img3" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-img4"><b>📸 ປ່ຽນຮູບທີ 4 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="edit-p-img4" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-p-img5"><b>📸 ປ່ຽນຮູບທີ 5 (ທາງເລືອກ)</b></label>
+                        <input type="file" id="edit-p-img5" accept="image/*">
                     </div>
                     <button type="submit" class="btn-submit" style="background-color: #ffaa00; color: #121212;">💾 ບັນທຶກການແກ້ໄຂ</button>
                 </form>
             </div>
         </div>
-
         <div id="detail-drawer" class="drawer-overlay">
             <div class="drawer-box">
-                <div class="drawer-header">
-                    <h2>🔎 ລາຍລະອຽດສິນຄ້າ</h2>
-                    <span id="close-drawer-btn" class="close-btn">&times;</span>
-                </div>
-                <div class="drawer-body">
-                    <div id="drawer-detail-content"></div>
-                </div>
+                <span id="close-drawer-btn" class="drawer-close">&times;</span>
+                <div id="drawer-detail-content"></div>
             </div>
         </div>
-
         <div id="cart-drawer" class="drawer-overlay">
             <div class="drawer-box">
-                <div class="drawer-header">
+                <div class="drawer-header-title">
                     <h2>🛒 ກະຕ່າສິນຄ້າຂອງທ່ານ</h2>
-                    <span id="close-cart-drawer-btn" class="close-btn">&times;</span>
+                    <span id="close-cart-drawer-btn" class="drawer-close">&times;</span>
                 </div>
-                <div class="drawer-body">
                 <div id="cart-items-list" class="cart-items-container"></div>
-                </div>
                 <div class="cart-summary">
                     <h3>ລວມທັງໝົດ: <span id="cart-total-price" style="color: #00a8cc;">0</span> ກີບ</h3>
                     <button class="btn-submit" onclick="openCheckoutModal()" style="margin-top: 15px;">💳 ສັ່ງຊື້ສິນຄ້າ</button>
                 </div>
             </div>
         </div>
-
         <div id="checkout-modal" class="modal-overlay">
             <div class="modal-box">
                 <div class="modal-header">
@@ -152,50 +192,50 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Admin Login Modal -->
         <div id="admin-login-modal" class="modal-overlay">
-            <div class="modal-box" style="max-width: 380px;">
+            <div class="modal-box" style="max-width: 400px;">
                 <div class="modal-header">
-                    <h2>🔐 Admin Login</h2>
-                    <span id="close-login-modal-btn" class="close-btn">&times;</span>
+                    <h2>🔒 ເຂົ້າລະບົບ Admin</h2>
+                    <span id="close-login-btn" class="close-btn">&times;</span>
                 </div>
-                <div id="login-form-view">
+                <div id="login-form-view" style="padding: 10px 0;">
                     <div class="form-group">
-                        <label><b>🔑 ລະຫັດຜ່ານແອັດມິນ</b></label>
-                        <div style="position:relative;">
-                            <input type="password" id="admin-pw-input" placeholder="ປ້ອນລະຫັດຜ່ານ..." style="padding-right:45px;">
-                            <span id="toggle-pw-eye" onclick="togglePwVisibility()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;user-select:none;">👁️</span>
+                        <label for="admin-pw-input"><b>🔑 ປ້ອນລະຫັດຜ່ານແອັດມິນ</b></label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" id="admin-pw-input" placeholder="••••••••" style="width: 100%; padding-right: 40px;" required>
+                            <span id="toggle-pw-eye" onclick="togglePwVisibility()" style="position: absolute; right: 12px; cursor:pointer; font-size:18px; user-select:none;">👁️</span>
                         </div>
                     </div>
                     <button class="btn-submit" onclick="submitAdminLogin()">🚀 ເຂົ້າລະບົບ</button>
                 </div>
             </div>
         </div>
-
         <div id="toast-container" class="toast-container"></div>
-        
         <section id="store-section">
-            <h2 class="section-title">🚲 ລາຍການເຟມແລະອະໄຫຼ່ Fixed Gear</h2>
+            <h2 class="section-title">🚲 ລາຍການເຟມແລະອະໄຫຼ่ Fixed Gear</h2>
+            <div class="category-tabs">
+                <button class="tab-btn active" onclick="filterCategory('all', this)">🌐 ທັງໝົດ</button>
+                <button class="tab-btn" onclick="filterCategory('frame', this)">🚲 ເຟມ</button>
+                <button class="tab-btn" onclick="filterCategory('crankset', this)">⚙️ จານໜ້າ</button>
+                <button class="tab-btn" onclick="filterCategory('wheelset', this)">⭕ ລໍ້</button>
+                <button class="tab-btn" onclick="filterCategory('other', this)">🛠️ ອື່ນໆ</button>
+            </div>
             <div class="product-grid" id="product-display"></div>
         </section>
-
         <footer>
             <div class="footer-content">
                 <p>© 2026 FIXED GEAR PARTS. ສະຫງວນລິຂະສິດ.</p>
                 <div class="contact-links">
                     <span>📞 ຕິດຕໍ່ເຮົາ:</span>
                     <a href="https://wa.me/2091142247" target="_blank" class="contact-icon wa">WhatsApp</a>
-                    <a href="https://www.facebook.com/tom.tom.version.ii" target="_blank" class="contact-icon fb">Facebook</a>
+                    <a href="https://www.facebook.com/share/18E66pP3Xf/?mibextid=wwXIfr" target="_blank" class="contact-icon fb">Facebook</a>
                 </div>
-                <button id="login-admin-btn" style="background: none; border: none; color: #444; cursor: pointer; font-size: 11px; margin-top: 10px;">🔐 ສຳລັບ Admin</button>
+                <button id="login-admin-btn">🔐 ສຳລັບ Admin</button>
             </div>
         </footer>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
     <script src="f.js"></script>
 </body>
 </html>

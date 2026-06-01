@@ -6,6 +6,7 @@ async function sha256(message) {
 }
 
 const ADMIN_PASSWORD_HASH = "d346252812cd8cd4f99265ded0171165522ed2012bcefcb19dbccf9a9b27d26b";
+
 const firebaseConfig = {
     apiKey: "AIzaSyCweJXhhQUzv1_TwKyAU-ftslMkh-fPRKU",
     authDomain: "fixed-project-644f3.firebaseapp.com",
@@ -19,9 +20,19 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-let isAdmin = false; 
-let products = []; 
-let cart = JSON.parse(localStorage.getItem('bike_cart')) || [];
+let products = [];
+
+function loadCartFromStorage() {
+    try {
+        return JSON.parse(localStorage.getItem('bike_cart')) || [];
+    } catch(e) {
+        return [];
+    }
+}
+let cart = loadCartFromStorage();
+
+let isAdmin = false;
+let currentCategory = 'all';
 
 const editModal = document.getElementById('edit-modal');
 const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
@@ -34,12 +45,12 @@ const qrcodeSection = document.getElementById('qrcode-section');
 const bcelQrImg = document.getElementById('bcel-qr-img');
 const payBcel = document.getElementById('pay-bcel');
 const payCod = document.getElementById('pay-cod');
+
 const productForm = document.getElementById('product-form');
 const productDisplay = document.getElementById('product-display');
 const adminModal = document.getElementById('admin-modal');
 const openModalBtn = document.getElementById('open-modal-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
-const loginAdminBtn = document.getElementById('login-admin-btn');
 const detailDrawer = document.getElementById('detail-drawer');
 const closeDrawerBtn = document.getElementById('close-drawer-btn');
 const drawerContent = document.getElementById('drawer-detail-content');
@@ -49,19 +60,36 @@ const closeCartDrawerBtn = document.getElementById('close-cart-drawer-btn');
 const cartItemsList = document.getElementById('cart-items-list');
 const cartTotalPrice = document.getElementById('cart-total-price');
 const cartCount = document.getElementById('cart-count');
+const loginAdminBtn = document.getElementById('login-admin-btn');
+const adminLoginModal = document.getElementById('admin-login-modal');
+const closeLoginBtn = document.getElementById('close-login-btn');
 
 openModalBtn.addEventListener('click', () => { adminModal.style.display = 'flex'; });
 closeModalBtn.addEventListener('click', () => { adminModal.style.display = 'none'; });
 closeDrawerBtn.addEventListener('click', () => { detailDrawer.style.display = 'none'; });
 openCartBtn.addEventListener('click', () => { cartDrawer.style.display = 'flex'; renderCart(); });
 closeCartDrawerBtn.addEventListener('click', () => { cartDrawer.style.display = 'none'; });
+loginAdminBtn.addEventListener('click', () => {
+    if (isAdmin) {
+        isAdmin = false;
+        openModalBtn.style.display = 'none';
+        loginAdminBtn.innerText = "🔐 ສຳລັບ Admin";
+        renderProducts();
+        showToast("🔒 ອອກຈາກລະບົບແອັດມິນແລ້ວ!");
+    } else {
+        adminLoginModal.style.display = 'flex';
+        showLoginView();
+    }
+});
+closeLoginBtn.addEventListener('click', () => { adminLoginModal.style.display = 'none'; });
 
 window.addEventListener('click', (e) => {
     if (e.target === adminModal) adminModal.style.display = 'none';
-    if (e.target === detailDrawer) detailDrawer.style.display = 'none';
-    if (e.target === cartDrawer) cartDrawer.style.display = 'none';
     if (e.target === checkoutModal) checkoutModal.style.display = 'none';
     if (e.target === editModal) editModal.style.display = 'none';
+    if (e.target === adminLoginModal) adminLoginModal.style.display = 'none';
+    if (e.target === detailDrawer) detailDrawer.style.display = 'none';
+    if (e.target === cartDrawer) cartDrawer.style.display = 'none';
 });
 
 function formatMoney(num) {
@@ -75,38 +103,54 @@ database.ref('products').on('value', (snapshot) => {
         Object.keys(data).forEach(key => {
             products.push({ firebaseKey: key, ...data[key] });
         });
-        products.reverse(); 
+        products.reverse();
     }
+    // ✅ sync ລາຄາ/ຊື່ໃນ cart ຕາມ Firebase ລ່າສຸດ
+    cart = cart.map(cartItem => {
+        const found = products.find(p => p.firebaseKey === cartItem.firebaseKey);
+        return found ? { firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img } : cartItem;
+    });
+    saveCart();
     renderProducts();
 });
 
+// 🔧 FIX #2: ສົ່ງ event ເປັນ parameter ແທນ global event
+function filterCategory(category, btn) {
+    currentCategory = category;
+    document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderProducts();
+}
+
 function renderProducts() {
     productDisplay.innerHTML = "";
-    if (products.length === 0) {
-        productDisplay.innerHTML = `<div class="no-product">❌ ບໍ່ມີສິນຄ້າໃນຮ້ານໃນເວລານີ້</div>`;
+    const filteredProducts = currentCategory === 'all'
+        ? products
+        : products.filter(p => p.category === currentCategory);
+
+    if (filteredProducts.length === 0) {
+        productDisplay.innerHTML = `<div class="no-product">❌ ບໍ່ມີສິນຄ້າໃນໝວດໝູ່ນີ້</div>`;
         return;
     }
 
-    products.forEach(product => {
+    filteredProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
-        const adminButtonsHTML = isAdmin ? `
-            <button class="btn-edit" onclick="editProduct(${product.id})">🛠️ ແກ້ໄຂ</button>
-            <button class="btn-delete" onclick="deleteProduct('${product.firebaseKey}')">ລຶບ</button>
-        ` : '';
-
         card.innerHTML = `
             <div class="product-img-box">
-                <img src="${product.img}" alt="${product.name}" onerror="this.src='https://placehold.co/600x400/2d2d2d/00a8cc?text=No+Image'">
+                <img src="${product.img}" alt="${product.name}" loading="lazy">
             </div>
             <div class="product-info">
                 <div class="product-name">${product.name}</div>
                 <div class="product-price">${formatMoney(product.price)} ກີບ</div>
                 <div class="card-buttons">
-                    <button class="btn-buy" onclick="openDetailDrawer(${product.id})">🔎 ເບິ່ງລາຍລະອຽດ</button>
+                    <button class="btn-buy" onclick="openDetailDrawer('${product.firebaseKey}')">🔎 ເບິ່ງລາຍລະອຽດ</button>
                     <div class="card-actions-row">
-                        <button class="btn-add-cart-card" onclick="addToCart(${product.id})">🛒 ໃສ່ກະຕ່າ</button>
-                        ${adminButtonsHTML}
+                        <button class="btn-add-cart-card" onclick="addToCart('${product.firebaseKey}')">🛒 ໃສ່ກະຕ່າ</button>
+                        ${isAdmin ? `
+                            <button class="btn-edit" onclick="editProduct('${product.firebaseKey}')">🛠️</button>
+                            <button class="btn-delete" onclick="deleteProduct('${product.firebaseKey}')">🗑️</button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -116,47 +160,85 @@ function renderProducts() {
     updateCartBadge();
 }
 
-function openDetailDrawer(id) {
-    const product = products.find(p => Number(p.id) === Number(id));
+function openDetailDrawer(firebaseKey) {
+    const product = products.find(p => p.firebaseKey === firebaseKey);
     if (!product) return;
 
-    const descText = product.desc || 'ອະໄຫຼ່ລົດຖີບ Fixed Gear ຄຸນນະພາບສູງ ທົນທານ ເໝາະສຳລັບສາຍປັ່ນທຸກຮູບແບບ.';
+    let additionalImagesHTML = '';
+    if (product.img2) {
+        additionalImagesHTML += `<img class="small-preview" src="${product.img2}" onclick="changeMainDetailImg('${product.img2}')" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #444;">`;
+    }
+    if (product.img3) {
+        additionalImagesHTML += `<img class="small-preview" src="${product.img3}" onclick="changeMainDetailImg('${product.img3}')" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #444;">`;
+    }
+    if (product.img4) {
+        additionalImagesHTML += `<img class="small-preview" src="${product.img4}" onclick="changeMainDetailImg('${product.img4}')" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #444;">`;
+    }
+    if (product.img5) {
+        additionalImagesHTML += `<img class="small-preview" src="${product.img5}" onclick="changeMainDetailImg('${product.img5}')" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #444;">`;
+    }
+
+    const desc = product.description || 'ອະໄຫຼ່ລົດຖີບ Fixed Gear ຄຸນນະພາບສູງ ທົນທານ ແລະ ເໝາະສຳລັບການໃຊ້ງານທຸກຮູບແບບ.';
+
     drawerContent.innerHTML = `
-        <img class="drawer-img" src="${product.img}" alt="${product.name}">
+        <div style="text-align:center;">
+            <img id="main-detail-img" src="${product.img}" style="width:100%;max-height:280px;object-fit:cover;border-radius:8px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:15px;">
+                <img class="small-preview" src="${product.img}" onclick="changeMainDetailImg('${product.img}')" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid #00a8cc;">
+                ${additionalImagesHTML}
+            </div>
+        </div>
         <div class="drawer-name">${product.name}</div>
+        <div style="display:inline-block;background:#00a8cc;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:12px;width:fit-content;">
+            ໝວດໝູ່: ${product.category === 'frame' ? 'ເຟມ' : product.category === 'crankset' ? 'ຈານໜ້າ' : product.category === 'wheelset' ? 'ລໍ້' : 'ອື່ນໆ'}
+        </div>
         <div class="drawer-price">${formatMoney(product.price)} ກີບ</div>
-        <p style="color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">${descText}</p>
-        <button class="btn-submit" onclick="addToCart(${product.id}); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>
+        <p style="color:#aaa;font-size:14px;line-height:1.6;margin-bottom:20px;">${desc}</p>
+        <button class="btn-submit" style="position:sticky;bottom:0;" onclick="addToCart('${product.firebaseKey}'); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>
     `;
     detailDrawer.style.display = 'flex';
 }
 
-function addToCart(id) {
-    const product = products.find(p => Number(p.id) === Number(id));
+function changeMainDetailImg(src) {
+    document.getElementById('main-detail-img').src = src;
+}
+
+function addToCart(firebaseKey) {
+    const product = products.find(p => p.firebaseKey === firebaseKey);
     if (!product) return;
 
-    const existingItem = cart.find(item => Number(item.id) === Number(id));
-    if (existingItem) {
+    if (cart.find(item => item.firebaseKey === firebaseKey)) {
         showToast('📦 ສິນຄ້ານີ້ຖືກເພີ່ມເຂົ້າໃນກະຕ່າແລ້ວ!', 'warning');
         return;
     }
 
-    cart.push(product);
-    localStorage.setItem('bike_cart', JSON.stringify(cart));
+    cart.push({
+        firebaseKey: product.firebaseKey,
+        name: product.name,
+        price: product.price,
+        img: product.img
+    });
+    saveCart();
     updateCartBadge();
     showToast(`🎉 ເພີ່ມ "${product.name}" ເຂົ້າກະຕ່າແລ້ວ!`);
+}
+
+function saveCart() {
+    try {
+        localStorage.setItem('bike_cart', JSON.stringify(cart));
+    } catch(e) {
+        showToast('⚠️ ບໍ່ສາມາດບັນທຶກກະຕ່າໄດ້ (storage ເຕັມ)', 'warning');
+    }
 }
 
 function renderCart() {
     cartItemsList.innerHTML = "";
     let total = 0;
-    
     if (cart.length === 0) {
-        cartItemsList.innerHTML = `<div style="text-align:center; padding:30px; color:#666;">ກະຕ່າວ່າງເປົ່າ ❌</div>`;
+        cartItemsList.innerHTML = `<div style="text-align:center;padding:30px;color:#666;">ກະຕ່າວ່າງເປົ່າ ❌</div>`;
         cartTotalPrice.innerText = "0";
         return;
     }
-
     cart.forEach((item, index) => {
         total += item.price;
         const div = document.createElement('div');
@@ -171,13 +253,12 @@ function renderCart() {
         `;
         cartItemsList.appendChild(div);
     });
-
     cartTotalPrice.innerText = formatMoney(total);
 }
 
 function removeFromCart(index) {
     cart.splice(index, 1);
-    localStorage.setItem('bike_cart', JSON.stringify(cart));
+    saveCart();
     renderCart();
     updateCartBadge();
 }
@@ -186,92 +267,120 @@ function updateCartBadge() {
     cartCount.innerText = cart.length;
 }
 
-productForm.addEventListener('submit', function(e) {
+const IMGBB_KEY = "98e7bf65332eb664214bae983f363d48";
+
+async function uploadToImgbb(file) {
+    if (!file) return null;
+    const formData = new FormData();
+    formData.append("key", IMGBB_KEY);
+    formData.append("image", file);
+    const res = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: formData });
+    const result = await res.json();
+    return result.success ? result.data.url : null;
+}
+
+productForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const nameInput = document.getElementById('p-name').value.trim();
-    const priceInput = document.getElementById('p-price').value;
-    const imgInput = document.getElementById('p-img').files[0];
+    const name = document.getElementById('p-name').value.trim();
+    const category = document.getElementById('p-category').value;
+    const price = parseInt(document.getElementById('p-price').value);
 
-    if (!nameInput || !priceInput || !imgInput) {
-        showToast('❌ ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ!', 'warning');
-        return;
-    }
+    const imgFile1 = document.getElementById('p-img').files[0];
+    const imgFile2 = document.getElementById('p-img2').files[0];
+    const imgFile3 = document.getElementById('p-img3').files[0];
 
-    showToast('⏳ ກຳລັງປະມວນຜົນຮູບ...', 'warning');
+    showToast("⏳ ກຳລັງອັບໂຫຼດຮູບພາບ...", "warning");
 
-    function compressImage(file, callback) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                const MAX_SIZE = 800;
-                let w = img.width, h = img.height;
-                if (w > MAX_SIZE || h > MAX_SIZE) {
-                    if (w > h) { h = Math.round(h * MAX_SIZE / w); w = MAX_SIZE; }
-                    else { w = Math.round(w * MAX_SIZE / h); h = MAX_SIZE; }
-                }
-                canvas.width = w;
-                canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                let dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                if (dataUrl.length > 200 * 1024 * 1.37) {
-                    dataUrl = canvas.toDataURL('image/jpeg', 0.4);
-                }
-                callback(dataUrl);
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
+    try {
+        const [url1, url2, url3] = await Promise.all([
+            uploadToImgbb(imgFile1),
+            uploadToImgbb(imgFile2),
+            uploadToImgbb(imgFile3)
+        ]);
 
-    compressImage(imgInput, function(compressedImg) {
+        if (!url1) {
+            showToast('❌ ອັບໂຫຼດຮູບຫຼັກບໍ່ສຳເລັດ!', 'warning');
+            return;
+        }
+
+        const desc = document.getElementById('p-desc').value.trim();
         const newProduct = {
             id: Date.now(),
-            name: nameInput,
-            price: parseInt(priceInput),
-            img: compressedImg
+            name, category, price,
+            description: desc || null,
+            img: url1,
+            img2: url2 || null,
+            img3: url3 || null
         };
 
-        database.ref('products').push(newProduct)
-        .then(() => {
-            productForm.reset();
-            adminModal.style.display = 'none';
-            showToast('🎉 ລົງຂາຍສິນຄ້າ ແລະ ອັບເດດອອນໄລນ໌ສຳເລັດ!');
-        })
-        .catch((error) => {
-            showToast('❌ ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້: ' + error.message, 'warning');
-            console.error(error);
-        });
-    });
+        await database.ref('products').push(newProduct);
+        productForm.reset();
+        adminModal.style.display = 'none';
+        showToast('🎉 ລົງຂາຍສິນຄ້າສຳເລັດ!');
+    } catch(err) {
+        showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
+        console.error(err);
+    }
 });
 
 function deleteProduct(firebaseKey) {
-    if(confirm('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້ອອກຈາກລະບົບອອນໄລນ໌?')) {
-        database.ref(`products/${firebaseKey}`).remove()
-        .then(() => {
-            showToast('🗑️ ລຶບສິນຄ້າອອກຈາກລະບົບແລ້ວ!');
+    if (confirm('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້?')) {
+        database.ref(`products/${firebaseKey}`).remove().then(() => {
+            showToast('🗑️ ລຶບສິນຄ້າອອກແລ້ວ!');
         });
     }
 }
 
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast-box ${type}`;
-    toast.innerHTML = `<span>${message}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.classList.add('fade-out');
-        setTimeout(() => { toast.remove(); }, 500);
-    }, 2500);
+function editProduct(firebaseKey) {
+    const product = products.find(p => p.firebaseKey === firebaseKey);
+    if (!product) return;
+    document.getElementById('edit-p-id').value = product.firebaseKey;
+    document.getElementById('edit-p-name').value = product.name;
+    document.getElementById('edit-p-category').value = product.category || 'frame';
+    document.getElementById('edit-p-price').value = product.price;
+    document.getElementById('edit-p-desc').value = product.description || '';
+    editModal.style.display = 'flex';
 }
 
-function openCheckoutModal() {
-    if (cart.length === 0) {
-        showToast('❌ ກະຕ່າຂອງທ່ານຍັງວ່າງເປົ່າ!', 'warning');
-        return;
+editProductForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const firebaseKey = document.getElementById('edit-p-id').value;
+    const updatedName = document.getElementById('edit-p-name').value.trim();
+    const updatedCategory = document.getElementById('edit-p-category').value;
+    const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
+    const updatedDesc = document.getElementById('edit-p-desc').value.trim();
+
+    const imgFile1 = document.getElementById('edit-p-img').files[0];
+    const imgFile2 = document.getElementById('edit-p-img2').files[0];
+    const imgFile3 = document.getElementById('edit-p-img3').files[0];
+
+    const updates = {
+        name: updatedName,
+        category: updatedCategory,
+        price: updatedPrice,
+        description: updatedDesc
+    };
+
+    if (imgFile1 || imgFile2 || imgFile3) {
+        showToast('⏳ ກຳລັງອັບໂຫຼດຮູບອາດ...', 'warning');
+        const [url1, url2, url3] = await Promise.all([
+            imgFile1 ? uploadToImgbb(imgFile1) : Promise.resolve(null),
+            imgFile2 ? uploadToImgbb(imgFile2) : Promise.resolve(null),
+            imgFile3 ? uploadToImgbb(imgFile3) : Promise.resolve(null),
+        ]);
+        if (url1) updates.img = url1;
+        if (url2) updates.img2 = url2;
+        if (url3) updates.img3 = url3;
     }
+
+    database.ref(`products/${firebaseKey}`).update(updates).then(() => {
+        editModal.style.display = 'none';
+        showToast('✏️ ແກ້ໄຂຂໍ້ມູນສຳເລັດ!');
+    });
+});
+
+function openCheckoutModal() {
+    if (cart.length === 0) { showToast('❌ ກະຕ່າວ່າງເປົ່າ!', 'warning'); return; }
     cartDrawer.style.display = 'none';
     let total = cart.reduce((sum, item) => sum + item.price, 0);
     checkoutTotalPrice.innerText = formatMoney(total);
@@ -288,7 +397,7 @@ checkoutForm.addEventListener('submit', function(e) {
     const customerPhone = document.getElementById('c-phone').value.trim();
     const customerAddress = document.getElementById('c-address').value.trim();
     const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
-    const slipInput = document.getElementById('c-slip').files[0]; 
+    const slipInput = document.getElementById('c-slip').files[0];
 
     if (paymentMethod === 'bcel' && !slipInput) {
         showToast("❌ ກະລຸນາແນບຫຼັກຖານການໂອນເງິນ!", "warning");
@@ -300,176 +409,51 @@ checkoutForm.addEventListener('submit', function(e) {
 
     function sendOrderToWhatsApp(slipUrl = null) {
         let orderListText = "";
-        cart.forEach((item, index) => {
-            orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`;
-        });
-
+        cart.forEach((item, index) => { orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`; });
         let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : 'ເກັບເງິນປາຍທາງ (COD)';
-        let whatsappMessage = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(total)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
+        let msg = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(total)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
+        if (slipUrl) msg += `• *ລິ້ງໃບສະລິບ:* ${slipUrl}\n`;
 
-        if (slipUrl) whatsappMessage += `• *ລິ້ງໃບສະລິບ:* ${slipUrl}\n`;
-
-        const myPhoneNumber = "2091142247";
-        const whatsappUrl = `https://wa.me/${myPhoneNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-
+        window.open(`https://wa.me/2091142247?text=${encodeURIComponent(msg)}`, '_blank');
         cart = [];
-        localStorage.setItem('bike_cart', JSON.stringify(cart));
+        saveCart();
         updateCartBadge();
         checkoutForm.reset();
         checkoutModal.style.display = 'none';
-        window.open(whatsappUrl, '_blank');
     }
 
     if (paymentMethod === 'bcel' && slipInput) {
-        const IMGBB_API_KEY = "98e7bf65332eb664214bae983f363d48"; 
         const formData = new FormData();
-        formData.append("key", IMGBB_API_KEY);
+        formData.append("key", IMGBB_KEY);
         formData.append("image", slipInput);
-
         fetch("https://api.imgbb.com/1/upload", { method: "POST", body: formData })
-        .then(res => res.json())
-        .then(result => {
-            if (result.success) sendOrderToWhatsApp(result.data.url);
-            else sendOrderToWhatsApp();
-        }).catch(() => sendOrderToWhatsApp());
+            .then(res => res.json())
+            .then(result => { sendOrderToWhatsApp(result.success ? result.data.url : null); })
+            .catch(() => sendOrderToWhatsApp());
     } else {
         sendOrderToWhatsApp();
     }
 });
 
-function editProduct(id) {
-    const product = products.find(p => Number(p.id) === Number(id));
-    if (!product) return;
-
-    document.getElementById('edit-p-id').value = product.firebaseKey;
-    document.getElementById('edit-p-name').value = product.name;
-    document.getElementById('edit-p-price').value = product.price;
-    document.getElementById('edit-p-desc').value = product.desc || '';
-
-    // Show current image preview
-    const preview = document.getElementById('edit-p-img-preview');
-    if (product.img) {
-        preview.src = product.img;
-        preview.style.display = 'block';
-    } else {
-        preview.style.display = 'none';
-    }
-
-    // Preview new image if selected
-    document.getElementById('edit-p-img').onchange = function() {
-        const file = this.files[0];
-        if (file) {
-            const r = new FileReader();
-            r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
-            r.readAsDataURL(file);
-        }
-    };
-
-    editModal.style.display = 'flex';
-}
-
-editProductForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const firebaseKey = document.getElementById('edit-p-id').value;
-    const updatedName = document.getElementById('edit-p-name').value.trim();
-    const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
-    const updatedDesc = document.getElementById('edit-p-desc').value.trim();
-    const imgFile = document.getElementById('edit-p-img').files[0];
-
-    if (updatedPrice <= 0) {
-        showToast("❌ ລາຄາຕ້ອງຫຼາຍກວ່າ 0 ກີບ!", "warning");
-        return;
-    }
-
-    function saveUpdate(newImg = null) {
-        const updateData = { name: updatedName, price: updatedPrice, desc: updatedDesc };
-        if (newImg) updateData.img = newImg;
-
-        database.ref(`products/${firebaseKey}`).update(updateData)
-        .then(() => {
-            editModal.style.display = 'none';
-            document.getElementById('edit-p-img').value = '';
-            showToast("✏️ ອັບເດດຂໍ້ມູນສິນຄ້າອອນໄລນ໌ສຳເລັດ!");
-        });
-    }
-
-    if (imgFile) {
-        showToast('⏳ ກຳລັງປະມວນຜົນຮູບ...', 'warning');
-        function compressAndSave(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_SIZE = 800;
-                    let w = img.width, h = img.height;
-                    if (w > MAX_SIZE || h > MAX_SIZE) {
-                        if (w > h) { h = Math.round(h * MAX_SIZE / w); w = MAX_SIZE; }
-                        else { w = Math.round(w * MAX_SIZE / h); h = MAX_SIZE; }
-                    }
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    let dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    if (dataUrl.length > 200 * 1024 * 1.37) dataUrl = canvas.toDataURL('image/jpeg', 0.4);
-                    saveUpdate(dataUrl);
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-        compressAndSave(imgFile);
-    } else {
-        saveUpdate();
-    }
+payBcel.addEventListener('change', () => {
+    qrcodeSection.style.display = 'block';
+    document.getElementById('slip-upload-section').style.display = 'block';
 });
-
-const slipSection = document.getElementById('slip-upload-section');
-if (slipSection) {
-    payBcel.addEventListener('change', () => { qrcodeSection.style.display = 'block'; slipSection.style.display = 'block'; });
-    payCod.addEventListener('change', () => { qrcodeSection.style.display = 'none'; slipSection.style.display = 'none'; });
-}
-
-const adminLoginModal = document.getElementById('admin-login-modal');
-const closeLoginModalBtn = document.getElementById('close-login-modal-btn');
-
-loginAdminBtn.addEventListener('click', () => {
-    if (isAdmin) {
-        isAdmin = false;
-        openModalBtn.style.display = 'none';
-        loginAdminBtn.innerText = "🔐 ສຳລັບ Admin";
-        renderProducts();
-        showToast("🔒 ອອກຈາກລະບົບແອັດມິນແລ້ວ!");
-    } else {
-        showLoginView();
-        adminLoginModal.style.display = 'flex';
-        setTimeout(() => document.getElementById('admin-pw-input').focus(), 300);
-    }
-});
-
-closeLoginModalBtn.addEventListener('click', () => { adminLoginModal.style.display = 'none'; });
-window.addEventListener('click', (e) => {
-    if (e.target === adminLoginModal) adminLoginModal.style.display = 'none';
-});
-
-// Allow Enter key to submit login
-document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitAdminLogin();
+payCod.addEventListener('change', () => {
+    qrcodeSection.style.display = 'none';
+    document.getElementById('slip-upload-section').style.display = 'none';
 });
 
 function showLoginView() {
     document.getElementById('login-form-view').style.display = 'block';
     document.getElementById('admin-pw-input').value = '';
 }
+
 function togglePwVisibility() {
     const input = document.getElementById('admin-pw-input');
     const eye = document.getElementById('toggle-pw-eye');
-    if (input.type === 'password') {
-        input.type = 'text';
-        eye.textContent = '🙈';
-    } else {
-        input.type = 'password';
-        eye.textContent = '👁️';
-    }
+    if (input.type === 'password') { input.type = 'text'; eye.textContent = '🙈'; }
+    else { input.type = 'password'; eye.textContent = '👁️'; }
 }
 
 function submitAdminLogin() {
@@ -485,8 +469,18 @@ function submitAdminLogin() {
             showToast("🔓 ເຂົ້າລະບົບແອັດມິນສຳເລັດ!");
         } else {
             showToast("❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!", "warning");
-            document.getElementById('admin-pw-input').value = '';
-            document.getElementById('admin-pw-input').focus();
         }
     });
+}
+
+function showToast(m, t = 'success') {
+    const c = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast-box ${t}`;
+    toast.innerHTML = `<span>${m}</span>`;
+    c.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => { toast.remove(); }, 500);
+    }, 2500);
 }

@@ -343,3 +343,106 @@ footer {
     color: white;
 }
 .contact-icon.fb:hover { background-color: #145dbf; transform: translateY(-2px); }
+/* 🔧 FIX #6: tab-btn styles ທີ່ຂາດໄປ */
+.category-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+}
+
+.tab-btn {
+    background-color: #2d2d2d;
+    color: #aaa;
+    border: 1px solid #444;
+    padding: 8px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Noto Sans Lao', sans-serif;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.tab-btn:hover {
+    border-color: #00a8cc;
+    color: #00a8cc;
+}
+
+.tab-btn.active {
+    background-color: #00a8cc;
+    border-color: #00a8cc;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+#login-admin-btn {
+    background: none;
+    border: 1px solid #444;
+    color: #888;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Noto Sans Lao', sans-serif;
+    transition: 0.3s;
+}
+
+#login-admin-btn:hover {
+    border-color: #00a8cc;
+    color: #00a8cc;
+}
+
+.cart-items-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+#drawer-detail-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 10px;
+}
+
+#detail-drawer .drawer-box {
+    overflow: hidden;
+}
+
+#detail-drawer .drawer-box .drawer-close {
+    flex-shrink: 0;
+}
+
+* {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+    display: none;
+}
+
+.form-group input[type="file"] {
+    background-color: #2d2d2d;
+    border: 2px dashed #00a8cc;
+    color: #aaa;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    width: 100%;
+}
+
+.form-group input[type="file"]:hover {
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+.small-preview {
+    width: 70px !important;
+    height: 70px !important;
+    object-fit: cover !important;
+    border-radius: 6px !important;
+    cursor: pointer;
+    flex-shrink: 0;
+}
