@@ -33,6 +33,7 @@ let cart = loadCartFromStorage();
 
 let isAdmin = false;
 let currentCategory = 'all';
+let currentSort = null; // 'asc' | 'desc' | null
 
 const editModal = document.getElementById('edit-modal');
 const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
@@ -119,14 +120,39 @@ function filterCategory(category, btn) {
     currentCategory = category;
     document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    if (currentSort) document.getElementById('sort-toggle-btn')?.classList.add('active');
+    renderProducts();
+}
+
+function toggleSort(btn) {
+    if (currentSort === 'asc') {
+        currentSort = 'desc';
+        btn.textContent = '💎 ແພງ → ຖືກ';
+        btn.classList.add('active');
+    } else if (currentSort === 'desc') {
+        currentSort = null;
+        btn.textContent = '💰 ຖືກ → ແພງ';
+        btn.classList.remove('active');
+    } else {
+        currentSort = 'asc';
+        btn.textContent = '💰 ຖືກ → ແພງ';
+        btn.classList.add('active');
+    }
     renderProducts();
 }
 
 function renderProducts() {
     productDisplay.innerHTML = "";
-    const filteredProducts = currentCategory === 'all'
+    let filteredProducts = currentCategory === 'all'
         ? products
         : products.filter(p => p.category === currentCategory);
+
+    if (currentSort === 'asc') {
+        filteredProducts = [...filteredProducts].sort((a, b) => a.price - b.price);
+    } else if (currentSort === 'desc') {
+        filteredProducts = [...filteredProducts].sort((a, b) => b.price - a.price);
+    }
+
 
     if (filteredProducts.length === 0) {
         productDisplay.innerHTML = `<div class="no-product">❌ ບໍ່ມີສິນຄ້າໃນໝວດໝູ່ນີ້</div>`;
@@ -136,17 +162,22 @@ function renderProducts() {
     filteredProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
+        const inStockBadge = product.inStock === false
+            ? `<span style="display:inline-block;background:#ff4444;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">❌ ສິນຄ້າໝົດ</span>`
+            : `<span style="display:inline-block;background:#28a745;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">✅ ມີສິນຄ້າ</span>`;
+        const outOfStock = product.inStock === false;
         card.innerHTML = `
             <div class="product-img-box">
-                <img src="${product.img}" alt="${product.name}" loading="lazy">
+                <img src="${product.img}" alt="${product.name}" loading="lazy" onerror="this.src='https://placehold.co/400x300/1c1c1c/444?text=No+Image'">
             </div>
             <div class="product-info">
+                ${inStockBadge}
                 <div class="product-name">${product.name}</div>
                 <div class="product-price">${formatMoney(product.price)} ກີບ</div>
                 <div class="card-buttons">
                     <button class="btn-buy" onclick="openDetailDrawer('${product.firebaseKey}')">🔎 ເບິ່ງລາຍລະອຽດ</button>
                     <div class="card-actions-row">
-                        <button class="btn-add-cart-card" onclick="addToCart('${product.firebaseKey}')">🛒 ໃສ່ກະຕ່າ</button>
+                        <button class="btn-add-cart-card" onclick="addToCart('${product.firebaseKey}')" ${outOfStock ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>🛒 ໃສ່ກະຕ່າ</button>
                         ${isAdmin ? `
                             <button class="btn-edit" onclick="editProduct('${product.firebaseKey}')">🛠️</button>
                             <button class="btn-delete" onclick="deleteProduct('${product.firebaseKey}')">🗑️</button>
@@ -288,29 +319,44 @@ productForm.addEventListener('submit', async function(e) {
     const imgFile1 = document.getElementById('p-img').files[0];
     const imgFile2 = document.getElementById('p-img2').files[0];
     const imgFile3 = document.getElementById('p-img3').files[0];
+    const imgFile4 = document.getElementById('p-img4').files[0];
+    const imgFile5 = document.getElementById('p-img5').files[0];
+
+    // 🔧 FIX: Disable submit button to prevent double-submit
+    const submitBtn = productForm.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ ກຳລັງອັບໂຫຼດ...';
 
     showToast("⏳ ກຳລັງອັບໂຫຼດຮູບພາບ...", "warning");
 
     try {
-        const [url1, url2, url3] = await Promise.all([
+        const [url1, url2, url3, url4, url5] = await Promise.all([
             uploadToImgbb(imgFile1),
             uploadToImgbb(imgFile2),
-            uploadToImgbb(imgFile3)
+            uploadToImgbb(imgFile3),
+            uploadToImgbb(imgFile4),
+            uploadToImgbb(imgFile5)
         ]);
 
         if (!url1) {
             showToast('❌ ອັບໂຫຼດຮູບຫຼັກບໍ່ສຳເລັດ!', 'warning');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '🚀 ລົງຂາຍສິນຄ້າທັນທີ';
             return;
         }
 
         const desc = document.getElementById('p-desc').value.trim();
+        const inStock = document.querySelector('input[name="p-stock"]:checked')?.value === '1';
         const newProduct = {
             id: Date.now(),
             name, category, price,
             description: desc || null,
+            inStock: inStock,
             img: url1,
             img2: url2 || null,
-            img3: url3 || null
+            img3: url3 || null,
+            img4: url4 || null,
+            img5: url5 || null
         };
 
         await database.ref('products').push(newProduct);
@@ -320,6 +366,9 @@ productForm.addEventListener('submit', async function(e) {
     } catch(err) {
         showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
         console.error(err);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 ລົງຂາຍສິນຄ້າທັນທີ';
     }
 });
 
@@ -339,6 +388,10 @@ function editProduct(firebaseKey) {
     document.getElementById('edit-p-category').value = product.category || 'frame';
     document.getElementById('edit-p-price').value = product.price;
     document.getElementById('edit-p-desc').value = product.description || '';
+    // 🔧 FIX: Set inStock radio button
+    const inStockVal = product.inStock === false ? '0' : '1';
+    const radioToCheck = document.querySelector(`input[name="edit-p-stock"][value="${inStockVal}"]`);
+    if (radioToCheck) radioToCheck.checked = true;
     editModal.style.display = 'flex';
 }
 
@@ -349,33 +402,51 @@ editProductForm.addEventListener('submit', async function(e) {
     const updatedCategory = document.getElementById('edit-p-category').value;
     const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
     const updatedDesc = document.getElementById('edit-p-desc').value.trim();
+    const updatedInStock = document.querySelector('input[name="edit-p-stock"]:checked')?.value === '1';
 
     const imgFile1 = document.getElementById('edit-p-img').files[0];
     const imgFile2 = document.getElementById('edit-p-img2').files[0];
     const imgFile3 = document.getElementById('edit-p-img3').files[0];
+    const imgFile4 = document.getElementById('edit-p-img4').files[0];
+    const imgFile5 = document.getElementById('edit-p-img5').files[0];
 
     const updates = {
         name: updatedName,
         category: updatedCategory,
         price: updatedPrice,
-        description: updatedDesc
+        description: updatedDesc,
+        inStock: updatedInStock
     };
 
-    if (imgFile1 || imgFile2 || imgFile3) {
+    // 🔧 FIX: Disable submit button to prevent double-submit
+    const editSubmitBtn = editProductForm.querySelector('.btn-submit');
+    editSubmitBtn.disabled = true;
+    editSubmitBtn.textContent = '⏳ ກຳລັງບັນທຶກ...';
+
+    if (imgFile1 || imgFile2 || imgFile3 || imgFile4 || imgFile5) {
         showToast('⏳ ກຳລັງອັບໂຫຼດຮູບອາດ...', 'warning');
-        const [url1, url2, url3] = await Promise.all([
+        const [url1, url2, url3, url4, url5] = await Promise.all([
             imgFile1 ? uploadToImgbb(imgFile1) : Promise.resolve(null),
             imgFile2 ? uploadToImgbb(imgFile2) : Promise.resolve(null),
             imgFile3 ? uploadToImgbb(imgFile3) : Promise.resolve(null),
+            imgFile4 ? uploadToImgbb(imgFile4) : Promise.resolve(null),
+            imgFile5 ? uploadToImgbb(imgFile5) : Promise.resolve(null),
         ]);
         if (url1) updates.img = url1;
         if (url2) updates.img2 = url2;
         if (url3) updates.img3 = url3;
+        if (url4) updates.img4 = url4;
+        if (url5) updates.img5 = url5;
     }
 
     database.ref(`products/${firebaseKey}`).update(updates).then(() => {
         editModal.style.display = 'none';
         showToast('✏️ ແກ້ໄຂຂໍ້ມູນສຳເລັດ!');
+    }).catch(err => {
+        showToast('❌ ແກ້ໄຂບໍ່ສຳເລັດ: ' + err.message, 'warning');
+    }).finally(() => {
+        editSubmitBtn.disabled = false;
+        editSubmitBtn.textContent = '💾 ບັນທຶກການແກ້ໄຂ';
     });
 });
 
