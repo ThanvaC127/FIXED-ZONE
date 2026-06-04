@@ -109,7 +109,7 @@ database.ref('products').on('value', (snapshot) => {
     // ✅ sync ລາຄາ/ຊື່ໃນ cart ຕາມ Firebase ລ່າສຸດ
     cart = cart.map(cartItem => {
         const found = products.find(p => p.firebaseKey === cartItem.firebaseKey);
-        return found ? { firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img } : cartItem;
+        return found ? { firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img, ownerPhone: found.ownerPhone || null } : cartItem;
     });
     saveCart();
     renderProducts();
@@ -247,7 +247,8 @@ function addToCart(firebaseKey) {
         firebaseKey: product.firebaseKey,
         name: product.name,
         price: product.price,
-        img: product.img
+        img: product.img,
+        ownerPhone: product.ownerPhone || null
     });
     saveCart();
     updateCartBadge();
@@ -346,12 +347,14 @@ productForm.addEventListener('submit', async function(e) {
         }
 
         const desc = document.getElementById('p-desc').value.trim();
+        const ownerPhone = document.getElementById('p-owner-phone').value.trim();
         const inStock = document.querySelector('input[name="p-stock"]:checked')?.value === '1';
         const newProduct = {
             id: Date.now(),
             name, category, price,
             description: desc || null,
             inStock: inStock,
+            ownerPhone: ownerPhone || null,
             img: url1,
             img2: url2 || null,
             img3: url3 || null,
@@ -388,6 +391,7 @@ function editProduct(firebaseKey) {
     document.getElementById('edit-p-category').value = product.category || 'frame';
     document.getElementById('edit-p-price').value = product.price;
     document.getElementById('edit-p-desc').value = product.description || '';
+    document.getElementById('edit-p-owner-phone').value = product.ownerPhone || '';
     // 🔧 FIX: Set inStock radio button
     const inStockVal = product.inStock === false ? '0' : '1';
     const radioToCheck = document.querySelector(`input[name="edit-p-stock"][value="${inStockVal}"]`);
@@ -402,6 +406,7 @@ editProductForm.addEventListener('submit', async function(e) {
     const updatedCategory = document.getElementById('edit-p-category').value;
     const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
     const updatedDesc = document.getElementById('edit-p-desc').value.trim();
+    const updatedOwnerPhone = document.getElementById('edit-p-owner-phone').value.trim();
     const updatedInStock = document.querySelector('input[name="edit-p-stock"]:checked')?.value === '1';
 
     const imgFile1 = document.getElementById('edit-p-img').files[0];
@@ -415,7 +420,8 @@ editProductForm.addEventListener('submit', async function(e) {
         category: updatedCategory,
         price: updatedPrice,
         description: updatedDesc,
-        inStock: updatedInStock
+        inStock: updatedInStock,
+        ownerPhone: updatedOwnerPhone || null
     };
 
     // 🔧 FIX: Disable submit button to prevent double-submit
@@ -479,13 +485,31 @@ checkoutForm.addEventListener('submit', function(e) {
     let total = cart.reduce((sum, item) => sum + item.price, 0);
 
     function sendOrderToWhatsApp(slipUrl = null) {
-        let orderListText = "";
-        cart.forEach((item, index) => { orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`; });
-        let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : 'ເກັບເງິນປາຍທາງ (COD)';
-        let msg = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(total)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
-        if (slipUrl) msg += `• *ລິ້ງໃບສະລິບ:* ${slipUrl}\n`;
+        // ຈັດກຸ່ມສິນຄ້າຕາມເຈົ້າຂອງ (ownerPhone)
+        const DEFAULT_PHONE = '2091142247';
+        const groups = {};
+        cart.forEach(item => {
+            const phone = (item.ownerPhone || DEFAULT_PHONE).replace(/\D/g, '');
+            if (!groups[phone]) groups[phone] = [];
+            groups[phone].push(item);
+        });
 
-        window.open(`https://wa.me/2091142247?text=${encodeURIComponent(msg)}`, '_blank');
+        let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : 'ເກັບເງິນປາຍທາງ (COD)';
+
+        Object.entries(groups).forEach(([phone, items]) => {
+            let orderListText = "";
+            let groupTotal = 0;
+            items.forEach((item, index) => {
+                orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`;
+                groupTotal += item.price;
+            });
+
+            let msg = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(groupTotal)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
+            if (slipUrl) msg += `• *ລິ້ງໃບສະລິບ:* ${slipUrl}\n`;
+
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        });
+
         cart = [];
         saveCart();
         updateCartBadge();
