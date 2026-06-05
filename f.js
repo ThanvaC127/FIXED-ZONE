@@ -21,6 +21,16 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 let products = [];
+let categories = []; // loaded from Firebase
+
+// Default categories (cannot be deleted)
+const DEFAULT_CATEGORIES = [
+    { key: 'frame',    emoji: '🚲', name: 'ເຟມ' },
+    { key: 'chainring', emoji: '⚙️', name: 'ໃບຈານ' },
+    { key: 'wheelset', emoji: '⭕', name: 'ລໍ້' },
+    { key: 'used',     emoji: '🔄', name: 'ສິນຄ້າມື 2' },
+    { key: 'other',    emoji: '🛠️', name: 'ອື່ນໆ' },
+];
 
 function loadCartFromStorage() {
     try {
@@ -65,8 +75,19 @@ const loginAdminBtn = document.getElementById('login-admin-btn');
 const adminLoginModal = document.getElementById('admin-login-modal');
 const closeLoginBtn = document.getElementById('close-login-btn');
 
+const openCategoryModalBtn = document.getElementById('open-category-modal-btn');
+const categoryModal = document.getElementById('category-modal');
+const closeCategoryModalBtn = document.getElementById('close-category-modal-btn');
+
 openModalBtn.addEventListener('click', () => { adminModal.style.display = 'flex'; });
 closeModalBtn.addEventListener('click', () => { adminModal.style.display = 'none'; });
+openCategoryModalBtn.addEventListener('click', () => {
+    categoryModal.style.display = 'flex';
+    renderCategoryAdminList();
+    const rows = document.getElementById('new-cat-rows');
+    if (rows && rows.children.length === 0) addNewCatRow();
+});
+closeCategoryModalBtn.addEventListener('click', () => { categoryModal.style.display = 'none'; });
 closeDrawerBtn.addEventListener('click', () => { detailDrawer.style.display = 'none'; });
 openCartBtn.addEventListener('click', () => { cartDrawer.style.display = 'flex'; renderCart(); });
 closeCartDrawerBtn.addEventListener('click', () => { cartDrawer.style.display = 'none'; });
@@ -74,6 +95,7 @@ loginAdminBtn.addEventListener('click', () => {
     if (isAdmin) {
         isAdmin = false;
         openModalBtn.style.display = 'none';
+        openCategoryModalBtn.style.display = 'none';
         loginAdminBtn.innerText = "🔐 ສຳລັບ Admin";
         renderProducts();
         showToast("🔒 ອອກຈາກລະບົບແອັດມິນແລ້ວ!");
@@ -90,8 +112,17 @@ window.addEventListener('click', (e) => {
     if (e.target === editModal) editModal.style.display = 'none';
     if (e.target === adminLoginModal) adminLoginModal.style.display = 'none';
     if (e.target === detailDrawer) detailDrawer.style.display = 'none';
-    if (e.target === cartDrawer) cartDrawer.style.display = 'none';
+    if (e.target === categoryModal) categoryModal.style.display = 'none';
 });
+
+function getCategoryLabel(catField) {
+    // Support both old string and new array
+    const keys = Array.isArray(catField) ? catField : [catField];
+    return keys.map(key => {
+        const cat = categories.find(c => c.key === key);
+        return cat ? `${cat.emoji} ${cat.name}` : key;
+    }).join(', ');
+}
 
 function formatMoney(num) {
     return num ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "0";
@@ -115,7 +146,28 @@ database.ref('products').on('value', (snapshot) => {
     renderProducts();
 });
 
-// 🔧 FIX #2: ສົ່ງ event ເປັນ parameter ແທນ global event
+database.ref('categories').on('value', (snapshot) => {
+    const data = snapshot.val();
+    const extra = data ? Object.keys(data).map(k => ({ key: k, ...data[k], fromFirebase: true })) : [];
+    // Merge: default first (with order from firebase if saved), then custom
+    const defaultKeys = DEFAULT_CATEGORIES.map(c => c.key);
+    // Check if defaults have saved order in firebase
+    const mergedDefaults = DEFAULT_CATEGORIES.map(def => {
+        const saved = extra.find(e => e.key === def.key);
+        return saved ? { ...def, order: saved.order ?? 999 } : { ...def, order: 999 };
+    });
+    const customOnly = extra.filter(c => !defaultKeys.includes(c.key));
+    const allCats = [...mergedDefaults, ...customOnly];
+    // Sort by order field
+    allCats.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    categories = allCats;
+    renderCategoryTabs();
+    renderCategoryAdminList();
+    populateCategorySelects();
+});
+
+
+
 function filterCategory(category, btn) {
     currentCategory = category;
     document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
@@ -123,6 +175,193 @@ function filterCategory(category, btn) {
     if (currentSort) document.getElementById('sort-toggle-btn')?.classList.add('active');
     renderProducts();
 }
+
+function renderCategoryTabs() {
+    const container = document.getElementById('category-tabs-container');
+    const sortBtn = document.getElementById('sort-toggle-btn');
+    container.querySelectorAll('.tab-btn:not(#sort-toggle-btn)').forEach(b => b.remove());
+    const allBtn = document.createElement('button');
+    allBtn.className = 'tab-btn' + (currentCategory === 'all' ? ' active' : '');
+    allBtn.textContent = '🌐 ທັງໝົດ';
+    allBtn.onclick = function() { filterCategory('all', this); };
+    container.insertBefore(allBtn, sortBtn);
+    categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'tab-btn' + (currentCategory === cat.key ? ' active' : '');
+        btn.textContent = `${cat.emoji} ${cat.name}`;
+        btn.onclick = function() { filterCategory(cat.key, this); };
+        container.insertBefore(btn, sortBtn);
+    });
+}
+
+function populateCategorySelects() {
+    // For add modal: render checkboxes
+    ['p-category-checks', 'edit-p-category-checks'].forEach(id => {
+        const container = document.getElementById(id);
+        if (!container) return;
+        // Remember selected values
+        const selected = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        container.innerHTML = '';
+        container.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;';
+        categories.forEach(cat => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:inline-flex;align-items:center;padding:6px 14px;background:#2d2d2d;border:1px solid #444;border-radius:20px;cursor:pointer;transition:0.2s;font-size:13px;color:#aaa;white-space:nowrap;user-select:none;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = cat.key;
+            cb.style.cssText = 'display:none;';
+            if (selected.includes(cat.key)) cb.checked = true;
+            cb.addEventListener('change', () => {
+                label.style.borderColor = cb.checked ? '#00a8cc' : '#444';
+                label.style.color = cb.checked ? '#ffffff' : '#aaa';
+                label.style.background = cb.checked ? '#00a8cc' : '#2d2d2d';
+                label.style.fontWeight = cb.checked ? 'bold' : 'normal';
+            });
+            // Apply initial style if checked
+            if (cb.checked) {
+                label.style.borderColor = '#00a8cc';
+                label.style.color = '#ffffff';
+                label.style.background = '#00a8cc';
+                label.style.fontWeight = 'bold';
+            }
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(`${cat.emoji} ${cat.name}`));
+            container.appendChild(label);
+        });
+    });
+}
+
+function renderCategoryAdminList() {
+    const list = document.getElementById('category-list-admin');
+    if (!list) return;
+    list.innerHTML = '';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+    const defaultKeys = DEFAULT_CATEGORIES.map(c => c.key);
+    let dragSrc = null;
+
+    categories.forEach((cat, idx) => {
+        const isDefault = defaultKeys.includes(cat.key);
+        const row = document.createElement('div');
+        row.draggable = true;
+        row.dataset.key = cat.key;
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;background:#2d2d2d;padding:10px 14px;border-radius:8px;cursor:grab;user-select:none;border:1px solid transparent;transition:0.15s;';
+
+        row.innerHTML = `
+            <span style="color:#555;font-size:18px;cursor:grab;" title="ລາກເພື່ອຈັດລຳດັບ">⠿</span>
+            <span style="font-size:20px;">${cat.emoji}</span>
+            <span style="flex:1;font-size:15px;">${cat.name}</span>
+            <span style="color:#555;font-size:12px;font-family:monospace;">${cat.key}</span>
+            ${isDefault
+                ? `<span style="color:#555;font-size:12px;padding:4px 10px;border:1px solid #444;border-radius:4px;">default</span>`
+                : `<button onclick="deleteCategory('${cat.key}')" style="background:#ff4444;border:none;color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🗑️</button>`
+            }
+        `;
+
+        // Drag events
+        row.addEventListener('dragstart', (e) => {
+            dragSrc = row;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => row.style.opacity = '0.4', 0);
+        });
+        row.addEventListener('dragend', () => {
+            row.style.opacity = '1';
+            list.querySelectorAll('[data-key]').forEach(r => r.style.borderColor = 'transparent');
+        });
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            list.querySelectorAll('[data-key]').forEach(r => r.style.borderColor = 'transparent');
+            if (row !== dragSrc) row.style.borderColor = '#00a8cc';
+        });
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (dragSrc === row) return;
+            // Reorder categories array
+            const fromIdx = categories.findIndex(c => c.key === dragSrc.dataset.key);
+            const toIdx = categories.findIndex(c => c.key === row.dataset.key);
+            const moved = categories.splice(fromIdx, 1)[0];
+            categories.splice(toIdx, 0, moved);
+            // Save order to Firebase
+            saveCategoryOrder();
+            // Re-render
+            renderCategoryAdminList();
+            renderCategoryTabs();
+            populateCategorySelects();
+        });
+
+        list.appendChild(row);
+    });
+}
+
+function saveCategoryOrder() {
+    const updates = {};
+    categories.forEach((cat, idx) => {
+        updates[`categories/${cat.key}`] = { emoji: cat.emoji, name: cat.name, order: idx };
+    });
+    database.ref().update(updates).catch(err => showToast('❌ ບໍ່ສາມາດບັນທຶກລຳດັບ: ' + err.message, 'warning'));
+}
+
+function addNewCatRow() {
+    const container = document.getElementById('new-cat-rows');
+    const row = document.createElement('div');
+    row.className = 'new-cat-row';
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    row.innerHTML = `
+        <input type="text" placeholder="🆕" style="width:60px;padding:10px;background:#2d2d2d;border:1px solid #444;border-radius:6px;color:#fff;text-align:center;font-size:18px;" data-role="emoji">
+        <input type="text" placeholder="ຊື່ໝວດໝູ່ (ລາວ)" style="flex:1;padding:10px;background:#2d2d2d;border:1px solid #444;border-radius:6px;color:#fff;" data-role="name">
+        <input type="text" placeholder="key (eng)" style="width:100px;padding:10px;background:#2d2d2d;border:1px solid #444;border-radius:6px;color:#fff;" data-role="key">
+        <button onclick="this.closest('.new-cat-row').remove()" style="background:none;border:none;color:#ff4444;font-size:20px;cursor:pointer;padding:4px 8px;flex-shrink:0;">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+function addCategoryRows() {
+    const rows = document.querySelectorAll('.new-cat-row');
+    if (rows.length === 0) { showToast('❌ ກະລຸນາເພີ່ມຢ່າງໜ້ອຍ 1 ໝວດໝູ່!', 'warning'); return; }
+    let hasError = false;
+    const toAdd = [];
+    rows.forEach(row => {
+        const emoji = row.querySelector('[data-role="emoji"]').value.trim() || '📦';
+        const name = row.querySelector('[data-role="name"]').value.trim();
+        const rawKey = row.querySelector('[data-role="key"]').value.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!name || !rawKey) { showToast('❌ ກະລຸນາໃສ່ຊື່ ແລະ key ທຸກໝວດໝູ່!', 'warning'); hasError = true; return; }
+        if (categories.find(c => c.key === rawKey) || toAdd.find(t => t.key === rawKey)) { showToast(`⚠️ key "${rawKey}" ມີຢູ່ແລ້ວ!`, 'warning'); hasError = true; return; }
+        toAdd.push({ emoji, name, key: rawKey });
+    });
+    if (hasError) return;
+    const updates = {};
+    toAdd.forEach(cat => { updates[`categories/${cat.key}`] = { emoji: cat.emoji, name: cat.name, order: categories.length + toAdd.indexOf(cat) }; });
+    database.ref().update(updates).then(() => {
+        document.getElementById('new-cat-rows').innerHTML = '';
+        showToast(`✅ ເພີ່ມ ${toAdd.length} ໝວດໝູ່ສຳເລັດ!`);
+    }).catch(err => showToast('❌ ' + err.message, 'warning'));
+}
+
+// Keep old function name for compatibility
+function addCategory() { addCategoryRows(); }
+
+function deleteCategory(key) {
+    if (!confirm(`ລຶບໝວດໝູ່ "${key}" ອອກ?\nສິນຄ້າທີ່ຢູ່ໃນໝວດໝູ່ນີ້ ຈະຖືກຍ້າຍໄປ "ອື່ນໆ" ອັດຕະໂນມັດ.`)) return;
+    const toMove = products.filter(p => {
+        const cats = Array.isArray(p.category) ? p.category : [p.category];
+        return cats.includes(key);
+    });
+    const updates = {};
+    toMove.forEach(p => {
+        let cats = Array.isArray(p.category) ? [...p.category] : [p.category];
+        cats = cats.filter(c => c !== key);
+        if (cats.length === 0) cats = ['other'];
+        updates[`products/${p.firebaseKey}/category`] = cats;
+    });
+    const run = () => database.ref(`categories/${key}`).remove().then(() => showToast('🗑️ ລຶບໝວດໝູ່ສຳເລັດ!')).catch(err => showToast('❌ ' + err.message, 'warning'));
+    if (Object.keys(updates).length > 0) {
+        database.ref().update(updates).then(run);
+    } else {
+        run();
+    }
+}
+
+
 
 function toggleSort(btn) {
     if (currentSort === 'asc') {
@@ -145,7 +384,11 @@ function renderProducts() {
     productDisplay.innerHTML = "";
     let filteredProducts = currentCategory === 'all'
         ? products
-        : products.filter(p => p.category === currentCategory);
+        : products.filter(p => {
+            // Support both old string category and new array of categories
+            const cats = Array.isArray(p.category) ? p.category : [p.category];
+            return cats.includes(currentCategory);
+        });
 
     if (currentSort === 'asc') {
         filteredProducts = [...filteredProducts].sort((a, b) => a.price - b.price);
@@ -221,7 +464,7 @@ function openDetailDrawer(firebaseKey) {
         </div>
         <div class="drawer-name">${product.name}</div>
         <div style="display:inline-block;background:#00a8cc;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:12px;width:fit-content;">
-            ໝວດໝູ່: ${product.category === 'frame' ? 'ເຟມ' : product.category === 'crankset' ? 'ຈານໜ້າ' : product.category === 'wheelset' ? 'ລໍ້' : 'ອື່ນໆ'}
+            ໝວດໝູ່: ${getCategoryLabel(product.category)}
         </div>
         <div class="drawer-price">${formatMoney(product.price)} ກີບ</div>
         <p style="color:#aaa;font-size:14px;line-height:1.6;margin-bottom:20px;">${desc}</p>
@@ -314,7 +557,6 @@ async function uploadToImgbb(file) {
 productForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const name = document.getElementById('p-name').value.trim();
-    const category = document.getElementById('p-category').value;
     const price = parseInt(document.getElementById('p-price').value);
 
     const imgFile1 = document.getElementById('p-img').files[0];
@@ -349,9 +591,17 @@ productForm.addEventListener('submit', async function(e) {
         const desc = document.getElementById('p-desc').value.trim();
         const ownerPhone = document.getElementById('p-owner-phone').value.trim();
         const inStock = document.querySelector('input[name="p-stock"]:checked')?.value === '1';
+        // Get selected categories from checkboxes
+        const selectedCats = Array.from(document.querySelectorAll('#p-category-checks input[type=checkbox]:checked')).map(cb => cb.value);
+        if (selectedCats.length === 0) {
+            showToast('❌ ກະລຸນາເລືອກຢ່າງໜ້ອຍ 1 ໝວດໝູ່!', 'warning');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '🚀 ລົງຂາຍສິນຄ້າທັນທີ';
+            return;
+        }
         const newProduct = {
             id: Date.now(),
-            name, category, price,
+            name, category: selectedCats, price,
             description: desc || null,
             inStock: inStock,
             ownerPhone: ownerPhone || null,
@@ -388,11 +638,21 @@ function editProduct(firebaseKey) {
     if (!product) return;
     document.getElementById('edit-p-id').value = product.firebaseKey;
     document.getElementById('edit-p-name').value = product.name;
-    document.getElementById('edit-p-category').value = product.category || 'frame';
+    populateCategorySelects();
+    // Set checkboxes for categories
+    const cats = Array.isArray(product.category) ? product.category : [product.category];
+    document.querySelectorAll('#edit-p-category-checks input[type=checkbox]').forEach(cb => {
+        cb.checked = cats.includes(cb.value);
+        const label = cb.closest('label');
+        if (label) {
+            label.style.borderColor = cb.checked ? '#00a8cc' : '#444';
+            label.style.color = cb.checked ? '#fff' : '#ccc';
+            label.style.background = cb.checked ? '#1a3a45' : '#2d2d2d';
+        }
+    });
     document.getElementById('edit-p-price').value = product.price;
     document.getElementById('edit-p-desc').value = product.description || '';
     document.getElementById('edit-p-owner-phone').value = product.ownerPhone || '';
-    // 🔧 FIX: Set inStock radio button
     const inStockVal = product.inStock === false ? '0' : '1';
     const radioToCheck = document.querySelector(`input[name="edit-p-stock"][value="${inStockVal}"]`);
     if (radioToCheck) radioToCheck.checked = true;
@@ -403,7 +663,11 @@ editProductForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const firebaseKey = document.getElementById('edit-p-id').value;
     const updatedName = document.getElementById('edit-p-name').value.trim();
-    const updatedCategory = document.getElementById('edit-p-category').value;
+    const updatedCategories = Array.from(document.querySelectorAll('#edit-p-category-checks input[type=checkbox]:checked')).map(cb => cb.value);
+    if (updatedCategories.length === 0) {
+        showToast('❌ ກະລຸນາເລືອກຢ່າງໜ້ອຍ 1 ໝວດໝູ່!', 'warning');
+        return;
+    }
     const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
     const updatedDesc = document.getElementById('edit-p-desc').value.trim();
     const updatedOwnerPhone = document.getElementById('edit-p-owner-phone').value.trim();
@@ -417,7 +681,7 @@ editProductForm.addEventListener('submit', async function(e) {
 
     const updates = {
         name: updatedName,
-        category: updatedCategory,
+        category: updatedCategories,
         price: updatedPrice,
         description: updatedDesc,
         inStock: updatedInStock,
@@ -558,6 +822,7 @@ function submitAdminLogin() {
         if (hash === ADMIN_PASSWORD_HASH) {
             isAdmin = true;
             openModalBtn.style.display = 'block';
+            openCategoryModalBtn.style.display = 'block';
             loginAdminBtn.innerText = "🔓 ອອກຈາກແອັດມິນ (Logout)";
             adminLoginModal.style.display = 'none';
             renderProducts();
