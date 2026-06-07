@@ -21,9 +21,8 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 let products = [];
-let categories = []; // loaded from Firebase
+let categories = [];
 
-// Default categories (cannot be deleted)
 const DEFAULT_CATEGORIES = [
     { key: 'frame',    emoji: '🚲', name: 'ເຟມ' },
     { key: 'chainring', emoji: '⚙️', name: 'ໃບຈານ' },
@@ -43,7 +42,7 @@ let cart = loadCartFromStorage();
 
 let isAdmin = false;
 let currentCategory = 'all';
-let currentSort = null; // 'asc' | 'desc' | null
+let currentSort = null;
 
 const editModal = document.getElementById('edit-modal');
 const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
@@ -56,7 +55,6 @@ const qrcodeSection = document.getElementById('qrcode-section');
 const bcelQrImg = document.getElementById('bcel-qr-img');
 const payBcel = document.getElementById('pay-bcel');
 const payCod = document.getElementById('pay-cod');
-
 const productForm = document.getElementById('product-form');
 const productDisplay = document.getElementById('product-display');
 const adminModal = document.getElementById('admin-modal');
@@ -74,7 +72,6 @@ const cartCount = document.getElementById('cart-count');
 const loginAdminBtn = document.getElementById('login-admin-btn');
 const adminLoginModal = document.getElementById('admin-login-modal');
 const closeLoginBtn = document.getElementById('close-login-btn');
-
 const openCategoryModalBtn = document.getElementById('open-category-modal-btn');
 const categoryModal = document.getElementById('category-modal');
 const closeCategoryModalBtn = document.getElementById('close-category-modal-btn');
@@ -116,7 +113,6 @@ window.addEventListener('click', (e) => {
 });
 
 function getCategoryLabel(catField) {
-    // Support both old string and new array
     const keys = Array.isArray(catField) ? catField : [catField];
     return keys.map(key => {
         const cat = categories.find(c => c.key === key);
@@ -137,7 +133,6 @@ database.ref('products').on('value', (snapshot) => {
         });
         products.reverse();
     }
-    // ✅ sync ລາຄາ/ຊື່ໃນ cart ຕາມ Firebase ລ່າສຸດ
     cart = cart.map(cartItem => {
         const found = products.find(p => p.firebaseKey === cartItem.firebaseKey);
         return found ? { firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img, ownerPhone: found.ownerPhone || null } : cartItem;
@@ -149,24 +144,19 @@ database.ref('products').on('value', (snapshot) => {
 database.ref('categories').on('value', (snapshot) => {
     const data = snapshot.val();
     const extra = data ? Object.keys(data).map(k => ({ key: k, ...data[k], fromFirebase: true })) : [];
-    // Merge: default first (with order from firebase if saved), then custom
     const defaultKeys = DEFAULT_CATEGORIES.map(c => c.key);
-    // Check if defaults have saved order in firebase
     const mergedDefaults = DEFAULT_CATEGORIES.map(def => {
         const saved = extra.find(e => e.key === def.key);
         return saved ? { ...def, order: saved.order ?? 999 } : { ...def, order: 999 };
     });
     const customOnly = extra.filter(c => !defaultKeys.includes(c.key));
     const allCats = [...mergedDefaults, ...customOnly];
-    // Sort by order field
     allCats.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
     categories = allCats;
     renderCategoryTabs();
     renderCategoryAdminList();
     populateCategorySelects();
 });
-
-
 
 function filterCategory(category, btn) {
     currentCategory = category;
@@ -195,11 +185,9 @@ function renderCategoryTabs() {
 }
 
 function populateCategorySelects() {
-    // For add modal: render checkboxes
     ['p-category-checks', 'edit-p-category-checks'].forEach(id => {
         const container = document.getElementById(id);
         if (!container) return;
-        // Remember selected values
         const selected = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
         container.innerHTML = '';
         container.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;';
@@ -217,7 +205,6 @@ function populateCategorySelects() {
                 label.style.background = cb.checked ? '#00a8cc' : '#2d2d2d';
                 label.style.fontWeight = cb.checked ? 'bold' : 'normal';
             });
-            // Apply initial style if checked
             if (cb.checked) {
                 label.style.borderColor = '#00a8cc';
                 label.style.color = '#ffffff';
@@ -257,7 +244,6 @@ function renderCategoryAdminList() {
             }
         `;
 
-        // Drag events
         row.addEventListener('dragstart', (e) => {
             dragSrc = row;
             e.dataTransfer.effectAllowed = 'move';
@@ -276,14 +262,11 @@ function renderCategoryAdminList() {
         row.addEventListener('drop', (e) => {
             e.preventDefault();
             if (dragSrc === row) return;
-            // Reorder categories array
             const fromIdx = categories.findIndex(c => c.key === dragSrc.dataset.key);
             const toIdx = categories.findIndex(c => c.key === row.dataset.key);
             const moved = categories.splice(fromIdx, 1)[0];
             categories.splice(toIdx, 0, moved);
-            // Save order to Firebase
             saveCategoryOrder();
-            // Re-render
             renderCategoryAdminList();
             renderCategoryTabs();
             populateCategorySelects();
@@ -337,7 +320,6 @@ function addCategoryRows() {
     }).catch(err => showToast('❌ ' + err.message, 'warning'));
 }
 
-// Keep old function name for compatibility
 function addCategory() { addCategoryRows(); }
 
 function deleteCategory(key) {
@@ -360,8 +342,6 @@ function deleteCategory(key) {
         run();
     }
 }
-
-
 
 function toggleSort(btn) {
     if (currentSort === 'asc') {
@@ -453,6 +433,15 @@ function openDetailDrawer(firebaseKey) {
     }
 
     const desc = product.description || 'ອະໄຫຼ່ລົດຖີບ Fixed Gear ຄຸນນະພາບສູງ ທົນທານ ແລະ ເໝາະສຳລັບການໃຊ້ງານທຸກຮູບແບບ.';
+    const outOfStock = product.inStock === false;
+
+    const stockBadge = outOfStock
+        ? `<div style="display:inline-block;background:#ff4444;color:#fff;padding:4px 14px;border-radius:4px;font-size:13px;margin-bottom:12px;font-weight:bold;">❌ ສິນຄ້າໝົດສະຕ໋ອກ</div>`
+        : `<div style="display:inline-block;background:#28a745;color:#fff;padding:4px 14px;border-radius:4px;font-size:13px;margin-bottom:12px;font-weight:bold;">✅ ມີສິນຄ້າ</div>`;
+
+    const actionButtons = outOfStock
+        ? `<button class="btn-submit" disabled style="opacity:0.4;cursor:not-allowed;">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>`
+        : `<button class="btn-submit" onclick="addToCart('${product.firebaseKey}'); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>`;
 
     drawerContent.innerHTML = `
         <div style="text-align:center;">
@@ -463,13 +452,23 @@ function openDetailDrawer(firebaseKey) {
             </div>
         </div>
         <div class="drawer-name">${product.name}</div>
-        <div style="display:inline-block;background:#00a8cc;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:12px;width:fit-content;">
+        <div style="display:inline-block;background:#00a8cc;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:8px;width:fit-content;">
             ໝວດໝູ່: ${getCategoryLabel(product.category)}
         </div>
+        <div style="margin-bottom:12px;">${stockBadge}</div>
         <div class="drawer-price">${formatMoney(product.price)} ກີບ</div>
-        <p style="color:#aaa;font-size:14px;line-height:1.6;margin-bottom:20px;">${desc}</p>
-        <button class="btn-submit" style="position:sticky;bottom:0;" onclick="addToCart('${product.firebaseKey}'); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>
+        <p style="color:#aaa;font-size:14px;line-height:1.6;margin-bottom:4px;">${desc}</p>
     `;
+
+    const existingAction = document.getElementById('drawer-action-area');
+    if (existingAction) existingAction.remove();
+
+    const actionArea = document.createElement('div');
+    actionArea.id = 'drawer-action-area';
+    actionArea.style.cssText = 'padding-top:12px;border-top:1px solid #2d2d2d;flex-shrink:0;margin-top:auto;';
+    actionArea.innerHTML = actionButtons;
+    drawerContent.parentElement.appendChild(actionArea);
+
     detailDrawer.style.display = 'flex';
 }
 
@@ -480,6 +479,11 @@ function changeMainDetailImg(src) {
 function addToCart(firebaseKey) {
     const product = products.find(p => p.firebaseKey === firebaseKey);
     if (!product) return;
+
+    if (product.inStock === false) {
+        showToast('❌ ສິນຄ້ານີ້ໝົດສະຕ໋ອກແລ້ວ! ບໍ່ສາມາດເພີ່ມໄດ້.', 'warning');
+        return;
+    }
 
     if (cart.find(item => item.firebaseKey === firebaseKey)) {
         showToast('📦 ສິນຄ້ານີ້ຖືກເພີ່ມເຂົ້າໃນກະຕ່າແລ້ວ!', 'warning');
@@ -591,7 +595,6 @@ productForm.addEventListener('submit', async function(e) {
         const desc = document.getElementById('p-desc').value.trim();
         const ownerPhone = document.getElementById('p-owner-phone').value.trim();
         const inStock = document.querySelector('input[name="p-stock"]:checked')?.value === '1';
-        // Get selected categories from checkboxes
         const selectedCats = Array.from(document.querySelectorAll('#p-category-checks input[type=checkbox]:checked')).map(cb => cb.value);
         if (selectedCats.length === 0) {
             showToast('❌ ກະລຸນາເລືອກຢ່າງໜ້ອຍ 1 ໝວດໝູ່!', 'warning');
@@ -688,7 +691,6 @@ editProductForm.addEventListener('submit', async function(e) {
         ownerPhone: updatedOwnerPhone || null
     };
 
-    // 🔧 FIX: Disable submit button to prevent double-submit
     const editSubmitBtn = editProductForm.querySelector('.btn-submit');
     editSubmitBtn.disabled = true;
     editSubmitBtn.textContent = '⏳ ກຳລັງບັນທຶກ...';
