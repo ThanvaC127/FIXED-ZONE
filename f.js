@@ -385,7 +385,6 @@ function renderProducts() {
         return;
     }
 
-    // drag state (admin + no price sort only)
     const canDrag = isAdmin && !currentSort;
     let dragSrcKey = null;
 
@@ -630,7 +629,6 @@ productForm.addEventListener('submit', async function(e) {
     const imgFile4 = document.getElementById('p-img4').files[0];
     const imgFile5 = document.getElementById('p-img5').files[0];
 
-    // 🔧 FIX: Disable submit button to prevent double-submit
     const submitBtn = productForm.querySelector('.btn-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = '⏳ ກຳລັງອັບໂຫຼດ...';
@@ -703,7 +701,6 @@ function editProduct(firebaseKey) {
     document.getElementById('edit-p-id').value = product.firebaseKey;
     document.getElementById('edit-p-name').value = product.name;
     populateCategorySelects();
-    // Set checkboxes for categories
     const cats = Array.isArray(product.category) ? product.category : [product.category];
     document.querySelectorAll('#edit-p-category-checks input[type=checkbox]').forEach(cb => {
         cb.checked = cats.includes(cb.value);
@@ -812,7 +809,6 @@ checkoutForm.addEventListener('submit', function(e) {
     let total = cart.reduce((sum, item) => sum + item.price, 0);
 
     function sendOrderToWhatsApp(slipUrl = null) {
-        // ຈັດກຸ່ມສິນຄ້າຕາມເຈົ້າຂອງ (ownerPhone)
         const DEFAULT_PHONE = '2091142247';
         const groups = {};
         cart.forEach(item => {
