@@ -131,7 +131,12 @@ database.ref('products').on('value', (snapshot) => {
         Object.keys(data).forEach(key => {
             products.push({ firebaseKey: key, ...data[key] });
         });
-        products.reverse();
+        products.sort((a, b) => {
+            const aO = a.order ?? 999999;
+            const bO = b.order ?? 999999;
+            if (aO !== bO) return aO - bO;
+            return (b.id || 0) - (a.id || 0);
+        });
     }
     cart = cart.map(cartItem => {
         const found = products.find(p => p.firebaseKey === cartItem.firebaseKey);
@@ -365,7 +370,6 @@ function renderProducts() {
     let filteredProducts = currentCategory === 'all'
         ? products
         : products.filter(p => {
-            // Support both old string category and new array of categories
             const cats = Array.isArray(p.category) ? p.category : [p.category];
             return cats.includes(currentCategory);
         });
@@ -376,20 +380,32 @@ function renderProducts() {
         filteredProducts = [...filteredProducts].sort((a, b) => b.price - a.price);
     }
 
-
     if (filteredProducts.length === 0) {
         productDisplay.innerHTML = `<div class="no-product">❌ ບໍ່ມີສິນຄ້າໃນໝວດໝູ່ນີ້</div>`;
         return;
     }
 
+    // drag state (admin + no price sort only)
+    const canDrag = isAdmin && !currentSort;
+    let dragSrcKey = null;
+
     filteredProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
+        card.dataset.key = product.firebaseKey;
+        if (canDrag) card.draggable = true;
+
         const inStockBadge = product.inStock === false
             ? `<span style="display:inline-block;background:#ff4444;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">❌ ສິນຄ້າໝົດ</span>`
             : `<span style="display:inline-block;background:#28a745;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">✅ ມີສິນຄ້າ</span>`;
         const outOfStock = product.inStock === false;
+
+        const dragHandle = canDrag
+            ? `<div class="drag-handle" title="ລາກເພື່ອຈັດລຳດັບ">⠿</div>`
+            : '';
+
         card.innerHTML = `
+            ${dragHandle}
             <div class="product-img-box">
                 <img src="${product.img}" alt="${product.name}" loading="lazy" onerror="this.src='https://placehold.co/400x300/1c1c1c/444?text=No+Image'">
             </div>
@@ -409,9 +425,54 @@ function renderProducts() {
                 </div>
             </div>
         `;
+
+        if (canDrag) {
+            card.addEventListener('dragstart', (e) => {
+                dragSrcKey = product.firebaseKey;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => card.style.opacity = '0.4', 0);
+            });
+            card.addEventListener('dragend', () => {
+                card.style.opacity = '1';
+                productDisplay.querySelectorAll('.product-card').forEach(c => c.style.outline = '');
+            });
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                productDisplay.querySelectorAll('.product-card').forEach(c => c.style.outline = '');
+                if (card.dataset.key !== dragSrcKey) card.style.outline = '2px solid #00a8cc';
+            });
+            card.addEventListener('dragleave', () => {
+                card.style.outline = '';
+            });
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.style.outline = '';
+                if (!dragSrcKey || dragSrcKey === product.firebaseKey) return;
+                reorderProducts(dragSrcKey, product.firebaseKey);
+            });
+        }
+
         productDisplay.appendChild(card);
     });
     updateCartBadge();
+}
+
+function reorderProducts(fromKey, toKey) {
+    const fromIdx = products.findIndex(p => p.firebaseKey === fromKey);
+    const toIdx   = products.findIndex(p => p.firebaseKey === toKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const moved = products.splice(fromIdx, 1)[0];
+    products.splice(toIdx, 0, moved);
+
+    // ບັນທຶກ order ໃໝ່ໃສ່ Firebase
+    const updates = {};
+    products.forEach((p, i) => { updates[`products/${p.firebaseKey}/order`] = i; });
+    database.ref().update(updates)
+        .then(() => showToast('✅ ຈັດລຳດັບສຳເລັດ!'))
+        .catch(err => showToast('❌ ' + err.message, 'warning'));
+
+    renderProducts();
 }
 
 function openDetailDrawer(firebaseKey) {
