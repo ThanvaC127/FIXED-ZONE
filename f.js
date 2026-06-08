@@ -396,6 +396,8 @@ function renderProducts() {
 
         const inStockBadge = product.inStock === false
             ? `<span style="display:inline-block;background:#ff4444;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">❌ ສິນຄ້າໝົດ</span>`
+            : product.inStock === 'preorder'
+            ? `<span style="display:inline-block;background:#ffaa00;color:#121212;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;font-weight:bold;">🟡 Pre-order</span>`
             : `<span style="display:inline-block;background:#28a745;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;margin-bottom:10px;">✅ ມີສິນຄ້າ</span>`;
         const outOfStock = product.inStock === false;
 
@@ -494,9 +496,12 @@ function openDetailDrawer(firebaseKey) {
 
     const desc = product.description || 'ອະໄຫຼ່ລົດຖີບ Fixed Gear ຄຸນນະພາບສູງ ທົນທານ ແລະ ເໝາະສຳລັບການໃຊ້ງານທຸກຮູບແບບ.';
     const outOfStock = product.inStock === false;
+    const isPreorder = product.inStock === 'preorder';
 
     const stockBadge = outOfStock
         ? `<div style="display:inline-block;background:#ff4444;color:#fff;padding:4px 14px;border-radius:4px;font-size:13px;margin-bottom:12px;font-weight:bold;">❌ ສິນຄ້າໝົດສະຕ໋ອກ</div>`
+        : isPreorder
+        ? `<div style="display:inline-block;background:#ffaa00;color:#121212;padding:4px 14px;border-radius:4px;font-size:13px;margin-bottom:12px;font-weight:bold;">🟡 Pre-order (ສັ່ງຈອງລ່ວງໜ້າ)</div>`
         : `<div style="display:inline-block;background:#28a745;color:#fff;padding:4px 14px;border-radius:4px;font-size:13px;margin-bottom:12px;font-weight:bold;">✅ ມີສິນຄ້າ</div>`;
 
     const actionButtons = outOfStock
@@ -544,6 +549,9 @@ function addToCart(firebaseKey) {
         showToast('❌ ສິນຄ້ານີ້ໝົດສະຕ໋ອກແລ້ວ! ບໍ່ສາມາດເພີ່ມໄດ້.', 'warning');
         return;
     }
+    if (product.inStock === 'preorder') {
+        showToast('⏳ ສິນຄ້ານີ້ເປັນ Pre-order ຈະຖືກເພີ່ມໃສ່ກະຕ່າ', 'warning');
+    }
 
     if (cart.find(item => item.firebaseKey === firebaseKey)) {
         showToast('📦 ສິນຄ້ານີ້ຖືກເພີ່ມເຂົ້າໃນກະຕ່າແລ້ວ!', 'warning');
@@ -555,7 +563,8 @@ function addToCart(firebaseKey) {
         name: product.name,
         price: product.price,
         img: product.img,
-        ownerPhone: product.ownerPhone || null
+        ownerPhone: product.ownerPhone || null,
+        isPreorder: product.inStock === 'preorder'
     });
     saveCart();
     updateCartBadge();
@@ -653,7 +662,8 @@ productForm.addEventListener('submit', async function(e) {
 
         const desc = document.getElementById('p-desc').value.trim();
         const ownerPhone = document.getElementById('p-owner-phone').value.trim();
-        const inStock = document.querySelector('input[name="p-stock"]:checked')?.value === '1';
+        const stockVal2 = document.querySelector('input[name="p-stock"]:checked')?.value;
+        const inStock = stockVal2 === '1' ? true : stockVal2 === 'preorder' ? 'preorder' : false;
         const selectedCats = Array.from(document.querySelectorAll('#p-category-checks input[type=checkbox]:checked')).map(cb => cb.value);
         if (selectedCats.length === 0) {
             showToast('❌ ກະລຸນາເລືອກຢ່າງໜ້ອຍ 1 ໝວດໝູ່!', 'warning');
@@ -714,7 +724,7 @@ function editProduct(firebaseKey) {
     document.getElementById('edit-p-price').value = product.price;
     document.getElementById('edit-p-desc').value = product.description || '';
     document.getElementById('edit-p-owner-phone').value = product.ownerPhone || '';
-    const inStockVal = product.inStock === false ? '0' : '1';
+    const inStockVal = product.inStock === false ? '0' : product.inStock === 'preorder' ? 'preorder' : '1';
     const radioToCheck = document.querySelector(`input[name="edit-p-stock"][value="${inStockVal}"]`);
     if (radioToCheck) radioToCheck.checked = true;
     editModal.style.display = 'flex';
@@ -732,7 +742,8 @@ editProductForm.addEventListener('submit', async function(e) {
     const updatedPrice = parseInt(document.getElementById('edit-p-price').value);
     const updatedDesc = document.getElementById('edit-p-desc').value.trim();
     const updatedOwnerPhone = document.getElementById('edit-p-owner-phone').value.trim();
-    const updatedInStock = document.querySelector('input[name="edit-p-stock"]:checked')?.value === '1';
+    const stockVal = document.querySelector('input[name="edit-p-stock"]:checked')?.value;
+    const updatedInStock = stockVal === '1' ? true : stockVal === 'preorder' ? 'preorder' : false;
 
     const imgFile1 = document.getElementById('edit-p-img').files[0];
     const imgFile2 = document.getElementById('edit-p-img2').files[0];
@@ -823,7 +834,7 @@ checkoutForm.addEventListener('submit', function(e) {
             let orderListText = "";
             let groupTotal = 0;
             items.forEach((item, index) => {
-                orderListText += `${index + 1}. ${item.name} (${formatMoney(item.price)} ກີບ)\n`;
+                orderListText += `${index + 1}. ${item.name}${item.isPreorder ? ' [🟡 Pre-order]' : ''} (${formatMoney(item.price)} ກີບ)\n`;
                 groupTotal += item.price;
             });
 
