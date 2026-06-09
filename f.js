@@ -506,7 +506,15 @@ function openDetailDrawer(firebaseKey) {
 
     const actionButtons = outOfStock
         ? `<button class="btn-submit" disabled style="opacity:0.4;cursor:not-allowed;">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>`
-        : `<button class="btn-submit" onclick="addToCart('${product.firebaseKey}'); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>`;
+        : `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <span style="color:#ccc;font-size:14px;">ຈຳນວນ:</span>
+            <button id="detail-qty-minus" onclick="adjustDetailQty(-1)" style="width:34px;height:34px;background:#2d2d2d;border:1px solid #00a8cc;color:#00a8cc;border-radius:8px;font-size:20px;font-weight:bold;cursor:pointer;line-height:1;">−</button>
+            <span id="detail-qty-display" style="min-width:32px;text-align:center;font-size:18px;font-weight:bold;">1</span>
+            <button id="detail-qty-plus" onclick="adjustDetailQty(1)" style="width:34px;height:34px;background:#00a8cc;border:none;color:#fff;border-radius:8px;font-size:20px;font-weight:bold;cursor:pointer;line-height:1;">+</button>
+        </div>
+        <button class="btn-submit" onclick="addToCart('${product.firebaseKey}', getDetailQty()); detailDrawer.style.display='none';">🛒 ເພີ່ມເຂົ້າກະຕ່າສິນຄ້າ</button>
+        `;
 
     drawerContent.innerHTML = `
         <div style="text-align:center;">
@@ -535,13 +543,24 @@ function openDetailDrawer(firebaseKey) {
     drawerContent.parentElement.appendChild(actionArea);
 
     detailDrawer.style.display = 'flex';
+    _detailQty = 1;
 }
 
 function changeMainDetailImg(src) {
     document.getElementById('main-detail-img').src = src;
 }
 
-function addToCart(firebaseKey) {
+let _detailQty = 1;
+function adjustDetailQty(delta) {
+    _detailQty = Math.max(1, _detailQty + delta);
+    const el = document.getElementById('detail-qty-display');
+    if (el) el.textContent = _detailQty;
+}
+function getDetailQty() {
+    return _detailQty;
+}
+
+function addToCart(firebaseKey, qty = 1) {
     const product = products.find(p => p.firebaseKey === firebaseKey);
     if (!product) return;
 
@@ -549,12 +568,13 @@ function addToCart(firebaseKey) {
         showToast('❌ ສິນຄ້ານີ້ໝົດສະຕ໋ອກແລ້ວ! ບໍ່ສາມາດເພີ່ມໄດ້.', 'warning');
         return;
     }
-    if (product.inStock === 'preorder') {
-        showToast('⏳ ສິນຄ້ານີ້ເປັນ Pre-order ຈະຖືກເພີ່ມໃສ່ກະຕ່າ', 'warning');
-    }
 
-    if (cart.find(item => item.firebaseKey === firebaseKey)) {
-        showToast('📦 ສິນຄ້ານີ້ຖືກເພີ່ມເຂົ້າໃນກະຕ່າແລ້ວ!', 'warning');
+    const existing = cart.find(item => item.firebaseKey === firebaseKey);
+    if (existing) {
+        existing.qty = (existing.qty || 1) + qty;
+        saveCart();
+        updateCartBadge();
+        showToast(`📦 ອັບເດດຈຳນວນ "${product.name}" → ${existing.qty} ອັນ!`);
         return;
     }
 
@@ -564,11 +584,26 @@ function addToCart(firebaseKey) {
         price: product.price,
         img: product.img,
         ownerPhone: product.ownerPhone || null,
-        isPreorder: product.inStock === 'preorder'
+        isPreorder: product.inStock === 'preorder',
+        qty: qty
     });
     saveCart();
     updateCartBadge();
-    showToast(`🎉 ເພີ່ມ "${product.name}" ເຂົ້າກະຕ່າແລ້ວ!`);
+    const isPreorder = product.inStock === 'preorder';
+    showToast(isPreorder ? `🟡 ເພີ່ມ Pre-order "${product.name}" x${qty} ເຂົ້າກະຕ່າແລ້ວ!` : `🎉 ເພີ່ມ "${product.name}" x${qty} ເຂົ້າກະຕ່າແລ້ວ!`);
+}
+
+function changeCartQty(index, delta) {
+    if (!cart[index]) return;
+    const newQty = (cart[index].qty || 1) + delta;
+    if (newQty < 1) {
+        removeFromCart(index);
+        return;
+    }
+    cart[index].qty = newQty;
+    saveCart();
+    renderCart();
+    updateCartBadge();
 }
 
 function saveCart() {
@@ -588,16 +623,27 @@ function renderCart() {
         return;
     }
     cart.forEach((item, index) => {
-        total += item.price;
+        const qty = item.qty || 1;
+        total += item.price * qty;
         const div = document.createElement('div');
         div.className = 'cart-item';
+        const preorderBadge = item.isPreorder
+            ? `<span style="display:inline-block;background:#ffaa00;color:#121212;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-top:4px;">🟡 Pre-order</span>`
+            : '';
         div.innerHTML = `
             <img class="cart-item-img" src="${item.img}" alt="${item.name}">
             <div class="cart-item-info">
                 <div class="cart-item-name">${item.name}</div>
-                <div class="cart-item-price">${formatMoney(item.price)} ກີບ</div>
+                ${preorderBadge}
+                <div class="cart-item-price">${formatMoney(item.price * qty)} ກີບ</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                    <button onclick="changeCartQty(${index}, -1)" style="width:28px;height:28px;background:#2d2d2d;border:1px solid #00a8cc;color:#00a8cc;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;">−</button>
+                    <span style="min-width:24px;text-align:center;font-weight:bold;font-size:15px;">${qty}</span>
+                    <button onclick="changeCartQty(${index}, 1)" style="width:28px;height:28px;background:#00a8cc;border:none;color:#fff;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;">+</button>
+                    <span style="color:#888;font-size:12px;">× ${formatMoney(item.price)}</span>
+                </div>
             </div>
-            <button class="btn-cart-delete" onclick="removeFromCart(${index})">❌ ລຶບ</button>
+            <button class="btn-cart-delete" onclick="removeFromCart(${index})">❌</button>
         `;
         cartItemsList.appendChild(div);
     });
@@ -612,7 +658,8 @@ function removeFromCart(index) {
 }
 
 function updateCartBadge() {
-    cartCount.innerText = cart.length;
+    const totalQty = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+    cartCount.innerText = totalQty;
 }
 
 const IMGBB_KEY = "98e7bf65332eb664214bae983f363d48";
@@ -794,7 +841,7 @@ editProductForm.addEventListener('submit', async function(e) {
 function openCheckoutModal() {
     if (cart.length === 0) { showToast('❌ ກະຕ່າວ່າງເປົ່າ!', 'warning'); return; }
     cartDrawer.style.display = 'none';
-    let total = cart.reduce((sum, item) => sum + item.price, 0);
+    let total = cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
     checkoutTotalPrice.innerText = formatMoney(total);
     bcelQrImg.src = `QrCode.jpeg`;
     checkoutModal.style.display = 'flex';
@@ -817,7 +864,7 @@ checkoutForm.addEventListener('submit', function(e) {
     }
 
     showToast("⏳ ກຳລັງປະມວນຜົນອໍເດີ້...", "warning");
-    let total = cart.reduce((sum, item) => sum + item.price, 0);
+    let total = cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
 
     function sendOrderToWhatsApp(slipUrl = null) {
         const DEFAULT_PHONE = '2091142247';
@@ -834,8 +881,9 @@ checkoutForm.addEventListener('submit', function(e) {
             let orderListText = "";
             let groupTotal = 0;
             items.forEach((item, index) => {
-                orderListText += `${index + 1}. ${item.name}${item.isPreorder ? ' [🟡 Pre-order]' : ''} (${formatMoney(item.price)} ກີບ)\n`;
-                groupTotal += item.price;
+                const qty = item.qty || 1;
+                orderListText += `${index + 1}. ${item.name}${item.isPreorder ? ' [🟡 Pre-order]' : ''} x${qty} (${formatMoney(item.price * qty)} ກີບ)\n`;
+                groupTotal += item.price * qty;
             });
 
             let msg = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(groupTotal)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
