@@ -374,6 +374,18 @@ function renderProducts() {
             return cats.includes(currentCategory);
         });
 
+    // ຄົ້ນຫາ
+    const searchInput = document.getElementById('search-input');
+    const searchVal = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    if (searchVal) {
+        filteredProducts = filteredProducts.filter(p =>
+            (p.name || '').toLowerCase().includes(searchVal) ||
+            (p.description || '').toLowerCase().includes(searchVal)
+        );
+    }
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.style.display = searchVal ? 'flex' : 'none';
+
     if (currentSort === 'asc') {
         filteredProducts = [...filteredProducts].sort((a, b) => a.price - b.price);
     } else if (currentSort === 'desc') {
@@ -381,7 +393,8 @@ function renderProducts() {
     }
 
     if (filteredProducts.length === 0) {
-        productDisplay.innerHTML = `<div class="no-product">❌ ບໍ່ມີສິນຄ້າໃນໝວດໝູ່ນີ້</div>`;
+        const searchVal2 = document.getElementById('search-input')?.value.trim();
+        productDisplay.innerHTML = `<div class="no-product">${searchVal2 ? `🔍 ບໍ່ພົບສິນຄ້າ "${searchVal2}"` : '❌ ບໍ່ມີສິນຄ້າໃນໝວດໝູ່ນີ້'}</div>`;
         return;
     }
 
@@ -858,8 +871,8 @@ checkoutForm.addEventListener('submit', function(e) {
     const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
     const slipInput = document.getElementById('c-slip').files[0];
 
-    if (paymentMethod === 'bcel' && !slipInput) {
-        showToast("❌ ກະລຸນາແນບຫຼັກຖານການໂອນເງິນ!", "warning");
+    if (!slipInput) {
+        showToast("❌ ກະລຸນາແນບຫຼັກຖານການໂອນເງິນ BCEL!", "warning");
         return;
     }
 
@@ -875,7 +888,7 @@ checkoutForm.addEventListener('submit', function(e) {
             groups[phone].push(item);
         });
 
-        let methodText = paymentMethod === 'bcel' ? 'ໂອນຜ່ານ BCEL One' : 'ເກັບເງິນປາຍທາງ (COD)';
+    let methodText = 'ໂອນຜ່ານ BCEL One';
 
         Object.entries(groups).forEach(([phone, items]) => {
             let orderListText = "";
@@ -899,7 +912,7 @@ checkoutForm.addEventListener('submit', function(e) {
         checkoutModal.style.display = 'none';
     }
 
-    if (paymentMethod === 'bcel' && slipInput) {
+    if (slipInput) {
         const formData = new FormData();
         formData.append("key", IMGBB_KEY);
         formData.append("image", slipInput);
@@ -912,13 +925,15 @@ checkoutForm.addEventListener('submit', function(e) {
     }
 });
 
+function clearSearch() {
+    const input = document.getElementById('search-input');
+    if (input) { input.value = ''; input.focus(); }
+    renderProducts();
+}
+
 payBcel.addEventListener('change', () => {
     qrcodeSection.style.display = 'block';
     document.getElementById('slip-upload-section').style.display = 'block';
-});
-payCod.addEventListener('change', () => {
-    qrcodeSection.style.display = 'none';
-    document.getElementById('slip-upload-section').style.display = 'none';
 });
 
 function showLoginView() {

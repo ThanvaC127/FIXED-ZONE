@@ -197,13 +197,11 @@
                         <div class="form-group">
                             <label><b>💳 ຊ່ອງທາງການຊຳລະເງິນ</b></label>
                             <div class="payment-methods">
-                                <label class="radio-label">
-                                    <input type="radio" name="payment-method" value="bcel" id="pay-bcel" checked> ໂອນຜ່ານ BCEL One
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="payment-method" value="cod" id="pay-cod"> ເກັບເງິນປາຍທາງ (COD)
+                                <label class="radio-label" style="pointer-events:none;opacity:0.85;">
+                                    <input type="radio" name="payment-method" value="bcel" id="pay-bcel" checked> 💳 ໂອນຜ່ານ BCEL One ເທົ່ານັ້ນ
                                 </label>
                             </div>
+                            <p style="color:#ffaa00;font-size:13px;margin-top:8px;">⚠️ ຮ້ານນີ້ຮັບໂອນເງິນກ່ອນເທົ່ານັ້ນ — ບໍ່ມີເກັບປາຍທາງ (No COD)</p>
                         </div>
                         <div id="qrcode-section" class="qrcode-box" style="text-align: center; margin: 20px 0;">
                             <p style="margin-bottom: 10px; font-size: 14px; color: #aaa;">Scan QR Code ດ້ານລຸ່ມນີ້ເພື່ອໂອນເງິນ</p>
@@ -265,6 +263,11 @@
             <h2 class="section-title">🚲 ລາຍການອາໄຫຼ່ Fixed Gear</h2>
             <div class="category-tabs" id="category-tabs-container">
                 <button class="tab-btn" id="sort-toggle-btn" onclick="toggleSort(this)">💰 ຖືກ → ແພງ</button>
+            </div>
+            <div class="search-bar-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="ຄົ້ນຫາສິນຄ້າ..." oninput="renderProducts()" autocomplete="off">
+                <button id="search-clear-btn" onclick="clearSearch()" title="ລ້າງຄົ້ນຫາ">✕</button>
             </div>
             <div class="product-grid" id="product-display"></div>
         </section>
