@@ -16,6 +16,10 @@
         <div class="nav-links">
             <button id="open-modal-btn" class="btn-nav-add" style="display: none;">➕ ເພີ່ມສິນຄ້າໃໝ່</button>
             <button id="open-category-modal-btn" class="btn-nav-add" style="display: none; background-color: #ffaa00; color: #121212;">🗂️ ໝວດໝູ່</button>
+            <button id="open-points-admin-btn" class="btn-nav-add" style="display: none; background-color: #8e44ad;">💎 ຈັດການ Point</button>
+            <button id="open-gacha-btn" class="btn-nav-cart">🎁 ກ່ອງສຸ່ມ<span id="gacha-badge" class="gacha-badge" style="display:none;"></span></button>
+            <button id="user-login-btn" class="btn-nav-cart">👤 ເຂົ້າສູ່ລະບົບ</button>
+            <button id="user-account-btn" class="btn-nav-cart" style="display: none;">👤 <span id="nav-username"></span> · 💎 <span id="nav-points">0</span></button>
             <button id="open-cart-btn" class="btn-nav-cart">
                 🛒 ກະຕ່າ <span id="cart-count">0</span>
             </button>
@@ -175,49 +179,34 @@
             </div>
         </div>
         <div id="checkout-modal" class="modal-overlay">
-            <div class="modal-box">
+            <div class="modal-box modal-compact" style="max-width: 400px;">
                 <div class="modal-header">
-                    <h2>📝 ປ້ອນຂໍ້ມູນການຈັດສົ່ງ</h2>
+                    <h2>📝 ຢືນຢັນການສັ່ງຊື້</h2>
                     <span id="close-checkout-btn" class="close-btn">&times;</span>
                 </div>
-                <div class="checkout-container">
-                    <form id="checkout-form">
-                        <div class="form-group">
-                            <label for="c-name"><b>👤 ຊື່ຜູ້ຮັບສິນຄ້າ</b></label>
-                            <input type="text" id="c-name" placeholder="ປ້ອນຊື່ ແລະ ນາມສະກຸນ" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="c-phone"><b>📞 ເບີໂທຕິດຕໍ່ (WhatsApp)</b></label>
-                            <input type="tel" id="c-phone" placeholder="ຕົວຢ່າງ: 20XXXXXXXX" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="c-address"><b>📍 ທີ່ຢູ່ຈັດສົ່ງສິນຄ້າ</b></label>
-                            <textarea id="c-address" rows="3" placeholder="ບ້ານ, ເມືອງ, ແຂວງ ແລະ ສະຖານທີ່ໃກ້ຄຽງ" required></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label><b>💳 ຊ່ອງທາງການຊຳລະເງິນ</b></label>
-                            <div class="payment-methods">
-                                <label class="radio-label" style="pointer-events:none;opacity:0.85;">
-                                    <input type="radio" name="payment-method" value="bcel" id="pay-bcel" checked> 💳 ໂອນຜ່ານ BCEL One ເທົ່ານັ້ນ
-                                </label>
-                            </div>
-                            <p style="color:#ffaa00;font-size:13px;margin-top:8px;">⚠️ ຮ້ານນີ້ຮັບໂອນເງິນກ່ອນເທົ່ານັ້ນ — ບໍ່ມີເກັບປາຍທາງ (No COD)</p>
-                        </div>
-                        <div id="qrcode-section" class="qrcode-box" style="text-align: center; margin: 20px 0;">
-                            <p style="margin-bottom: 10px; font-size: 14px; color: #aaa;">Scan QR Code ດ້ານລຸ່ມນີ້ເພື່ອໂອນເງິນ</p>
-                            <img id="bcel-qr-img" src="" alt="BCEL One QR" style="width: 200px; height: 200px; background-color: white; padding: 10px; border-radius: 8px;">
-                            <p style="margin-top: 10px; font-size: 12px; color: #ffaa00;">*ໂອນແລ້ວກະລຸນາແນບຫຼັກຖານການໂອນ ຫຼື ກົດຢືນຢັນໄດ້ເລີຍ</p>
-                        </div>
-                        <div id="slip-upload-section" class="form-group">
-                            <label for="c-slip"><b>📸 ແນບຫຼັກຖານການໂອນເງິນ (ໃບສະລິບ BCEL One)</b></label>
-                            <input type="file" id="c-slip" accept="image/*">
-                        </div>
-                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 20px; text-align: right;">
-                            ຍອດເງິນທີ່ຕ້ອງຈ່າຍ: <span id="checkout-total-price" style="color: #00a8cc;">0</span> ກີບ
-                        </div>
-                        <button type="submit" class="btn-submit" style="background-color: #28a745;">🚀 ຢືນຢັນການສັ່ງຊື້ສິນຄ້າ</button>
-                    </form>
-                </div>
+                <form id="checkout-form">
+                    <div class="form-group">
+                        <label for="c-name"><b>👤 ຊື່ຜູ້ຮັບສິນຄ້າ</b></label>
+                        <input type="text" id="c-name" placeholder="ປ້ອນຊື່ ແລະ ນາມສະກຸນ" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="c-phone"><b>📞 ເບີໂທຕິດຕໍ່ (WhatsApp)</b></label>
+                        <input type="tel" id="c-phone" placeholder="ຕົວຢ່າງ: 20XXXXXXXX" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="c-address"><b>📍 ທີ່ຢູ່ຈັດສົ່ງສິນຄ້າ</b></label>
+                        <textarea id="c-address" rows="3" placeholder="ບ້ານ, ເມືອງ, ແຂວງ ແລະ ສະຖານທີ່ໃກ້ຄຽງ" required></textarea>
+                    </div>
+                    <div class="pay-box">
+                        <div class="pay-title">💎 ຊຳລະດ້ວຍ Point</div>
+                        <div class="pay-row"><span>ຍອດສິນຄ້າ</span><b><span id="checkout-total-price">0</span> ກີບ</b></div>
+                        <div class="pay-row"><span>Point ທີ່ຕ້ອງໃຊ້</span><b id="pay-need" class="pay-hl">0</b></div>
+                        <div class="pay-row"><span>Point ຂອງທ່ານ</span><b id="pay-balance">-</b></div>
+                        <div class="pay-row pay-after"><span>ຄົງເຫຼືອຫຼັງຊຳລະ</span><b id="pay-after">-</b></div>
+                        <div id="pay-warning" class="pay-warning" style="display:none;"></div>
+                    </div>
+                    <button type="submit" id="checkout-submit-btn" class="btn-submit" style="background-color: #28a745;">💎 ຊຳລະດ້ວຍ Point</button>
+                </form>
             </div>
         </div>
         <div id="admin-login-modal" class="modal-overlay">
@@ -256,6 +245,173 @@
                     <label style="color:#ccc;font-size:14px;display:block;margin-bottom:10px;"><b>📋 ໝວດໝູ່ທັງໝົດ</b> <span style="color:#888;font-size:12px;">(ລາກ ⠿ ເພື່ອຈັດລຳດັບ | ໝວດໝູ່ default ລຶບບໍ່ໄດ້)</span></label>
                     <div id="category-list-admin" style="display:flex;flex-direction:column;gap:8px;"></div>
                 </div>
+            </div>
+        </div>
+        <!-- ===== User login / register ===== -->
+        <div id="user-auth-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2 id="auth-title">👤 ເຂົ້າສູ່ລະບົບ</h2>
+                    <span id="close-user-auth-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="category-tabs">
+                    <button type="button" class="tab-btn active" id="auth-tab-login" onclick="switchAuthMode('login')">🔑 ເຂົ້າສູ່ລະບົບ</button>
+                    <button type="button" class="tab-btn" id="auth-tab-register" onclick="switchAuthMode('register')">📝 ສະໝັກສະມາຊິກ</button>
+                </div>
+                <form id="user-auth-form" autocomplete="off">
+                    <div class="form-group">
+                        <label for="auth-username"><b>👤 ຊື່ຜູ້ໃຊ້</b></label>
+                        <input type="text" id="auth-username" placeholder="a-z, 0-9, _ (3-20 ຕົວ)" maxlength="20" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-password"><b>🔑 ລະຫັດຜ່ານ</b></label>
+                        <input type="password" id="auth-password" placeholder="ຢ່າງໜ້ອຍ 6 ຕົວ" required>
+                    </div>
+                    <div class="form-group" id="auth-confirm-group" style="display:none;">
+                        <label for="auth-password2"><b>🔑 ຢືນຢັນລະຫັດຜ່ານ</b></label>
+                        <input type="password" id="auth-password2" placeholder="ປ້ອນລະຫັດຜ່ານອີກຄັ້ງ">
+                    </div>
+                    <div class="form-group" id="auth-phone-group" style="display:none;">
+                        <label for="auth-phone"><b>📱 ເບີ WhatsApp (ທາງເລືອກ)</b></label>
+                        <input type="tel" id="auth-phone" placeholder="ຕົວຢ່າງ: 20XXXXXXXX">
+                    </div>
+                    <button type="submit" class="btn-submit" id="auth-submit-btn">🚀 ເຂົ້າສູ່ລະບົບ</button>
+                </form>
+            </div>
+        </div>
+        <!-- ===== User account ===== -->
+        <div id="account-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2>👤 ບັນຊີຂອງຂ້ອຍ</h2>
+                    <span id="close-account-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="points-card">
+                    <div class="points-card-user" id="account-username">-</div>
+                    <div class="points-card-label">ຍອດ Point ຄົງເຫຼືອ</div>
+                    <div class="points-card-value">💎 <span id="account-points">0</span></div>
+                </div>
+                <button class="btn-submit" onclick="openTopupModal()" style="margin-bottom:12px;">➕ ເຕີມ Point</button>
+                <button class="btn-submit" onclick="openOrdersModal()" style="margin-bottom:12px;background-color:#2d2d2d;border:1px solid #00a8cc;color:#00a8cc;">🧾 ປະຫວັດການສັ່ງຊື້ <span id="order-count-badge"></span></button>
+                <div style="border-top:1px solid #2d2d2d;padding-top:14px;">
+                    <label style="color:#ccc;font-size:14px;display:block;margin-bottom:10px;"><b>📋 ປະຫວັດ Point (20 ລາຍການຫຼ້າສຸດ)</b></label>
+                    <div id="point-history-list"></div>
+                </div>
+                <button class="btn-submit" onclick="userLogout()" style="margin-top:16px;background-color:#2d2d2d;border:1px solid #ff4444;color:#ff4444;">🚪 ອອກຈາກລະບົບ</button>
+            </div>
+        </div>
+        <!-- ===== Gacha box ===== -->
+        <div id="gacha-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 440px;">
+                <div class="modal-header">
+                    <h2>🎁 ກ່ອງສຸ່ມ</h2>
+                    <span id="close-gacha-btn" class="close-btn">&times;</span>
+                </div>
+                <div id="gacha-info"></div>
+                <div class="gacha-stage">
+                    <div id="gacha-box" class="gacha-box">🎁</div>
+                    <div id="gacha-result"></div>
+                </div>
+                <button id="gacha-spin-btn" class="btn-submit" onclick="gachaSpin()">🎁 ສຸ່ມ</button>
+                <div id="gacha-unclaimed"></div>
+                <div id="gacha-history"></div>
+                <div id="gacha-admin"></div>
+            </div>
+        </div>
+        <div id="gacha-claim-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2>🎉 ຮັບເສື້ອຂອງເຈົ້າ</h2>
+                    <span id="close-gacha-claim-btn" class="close-btn">&times;</span>
+                </div>
+                <form id="gacha-claim-form">
+                    <input type="hidden" id="gc-win-key">
+                    <div class="form-group">
+                        <label for="gc-name"><b>👤 ຊື່ຜູ້ຮັບ</b></label>
+                        <input type="text" id="gc-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="gc-phone"><b>📞 ເບີໂທ</b></label>
+                        <input type="tel" id="gc-phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="gc-address"><b>📍 ທີ່ຢູ່ຈັດສົ່ງ</b></label>
+                        <textarea id="gc-address" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" id="gc-submit-btn" class="btn-submit">✅ ຢືນຢັນຮັບເສື້ອ</button>
+                </form>
+            </div>
+        </div>
+        <!-- ===== Order history ===== -->
+        <div id="orders-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 440px;">
+                <div class="modal-header">
+                    <h2>🧾 ປະຫວັດການສັ່ງຊື້</h2>
+                    <span id="close-orders-btn" class="close-btn">&times;</span>
+                </div>
+                <div id="order-history-list"></div>
+            </div>
+        </div>
+        <div id="order-detail-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2>📄 ລາຍລະອຽດອໍເດີ້</h2>
+                    <span id="close-order-detail-btn" class="close-btn">&times;</span>
+                </div>
+                <div id="order-detail-content"></div>
+            </div>
+        </div>
+        <!-- ===== Top-up instructions ===== -->
+        <div id="topup-modal" class="modal-overlay">
+            <div class="modal-box" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2>💎 ວິທີເຕີມ Point</h2>
+                    <span id="close-topup-btn" class="close-btn">&times;</span>
+                </div>
+                <ol class="topup-steps">
+                    <li>ກົດປຸ່ມ <b>ຕິດຕໍ່ແອັດມິນ</b> ດ້ານລຸ່ມ (ຊື່ຜູ້ໃຊ້ຂອງທ່ານຈະຖືກໃສ່ໃນຂໍ້ຄວາມໃຫ້ອັດຕະໂນມັດ)</li>
+                    <li>ແຈ້ງຈຳນວນ Point ທີ່ຕ້ອງການເຕີມ ແລະ ແນບຫຼັກຖານການໂອນ (ຖ້າມີ)</li>
+                    <li>ແອັດມິນຈະເຕີມ Point ໃຫ້ຕາມຊື່ຜູ້ໃຊ້ ແລະ ຍອດຈະອັບເດດໃຫ້ອັດຕະໂນມັດ</li>
+                </ol>
+                <div class="topup-user">ຊື່ຜູ້ໃຊ້ຂອງທ່ານ: <b id="topup-username">-</b></div>
+                <a id="topup-wa-link" class="btn-submit" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none;background-color:#25D366;">💬 ຕິດຕໍ່ແອັດມິນທາງ WhatsApp</a>
+            </div>
+        </div>
+        <!-- ===== Admin: manage points ===== -->
+        <div id="points-admin-modal" class="modal-overlay">
+            <div class="modal-box modal-compact" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>💎 ຈັດການ Point ຜູ້ໃຊ້</h2>
+                    <span id="close-points-admin-btn" class="close-btn">&times;</span>
+                </div>
+                <div class="search-bar-wrap" style="margin-bottom:15px;">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="points-admin-search" placeholder="ຄົ້ນຫາຊື່ຜູ້ໃຊ້ ຫຼື ເບີໂທ..." oninput="renderPointsAdminList()" autocomplete="off" style="flex:1;background:none;border:none;outline:none;color:#fff;font-size:15px;">
+                </div>
+                <div id="points-admin-count" style="color:#888;font-size:13px;margin-bottom:10px;"></div>
+                <div id="points-admin-list"></div>
+            </div>
+        </div>
+        <!-- ===== Custom confirm (replaces alert/confirm) ===== -->
+        <div id="confirm-modal" class="modal-overlay confirm-overlay">
+            <div class="modal-box confirm-box">
+                <div class="confirm-icon" id="confirm-icon">❓</div>
+                <div class="confirm-title" id="confirm-title"></div>
+                <div class="confirm-msg" id="confirm-msg"></div>
+                <div class="confirm-actions">
+                    <button type="button" id="confirm-cancel" class="confirm-btn confirm-cancel">ຍົກເລີກ</button>
+                    <button type="button" id="confirm-ok" class="confirm-btn confirm-ok">ຕົກລົງ</button>
+                </div>
+            </div>
+        </div>
+        <!-- ===== Order success ===== -->
+        <div id="order-done-modal" class="modal-overlay confirm-overlay">
+            <div class="modal-box confirm-box">
+                <div class="confirm-icon">✅</div>
+                <div class="confirm-title">ຊຳລະດ້ວຍ Point ສຳເລັດ!</div>
+                <div class="confirm-msg" id="order-done-msg"></div>
+                <div id="order-done-links" class="order-done-links"></div>
+                <button type="button" id="order-done-close" class="confirm-btn confirm-cancel" style="width:100%;margin-top:10px;">ປິດ</button>
             </div>
         </div>
         <div id="toast-container" class="toast-container"></div>

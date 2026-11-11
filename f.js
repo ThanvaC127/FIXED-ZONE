@@ -17,6 +17,8 @@ const firebaseConfig = {
     appId: "1:734913037994:web:2d911dd24b1271b34df2d3"
 };
 
+const $ = (id) => document.getElementById(id);
+
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
@@ -51,10 +53,6 @@ const checkoutModal = document.getElementById('checkout-modal');
 const closeCheckoutBtn = document.getElementById('close-checkout-btn');
 const checkoutTotalPrice = document.getElementById('checkout-total-price');
 const checkoutForm = document.getElementById('checkout-form');
-const qrcodeSection = document.getElementById('qrcode-section');
-const bcelQrImg = document.getElementById('bcel-qr-img');
-const payBcel = document.getElementById('pay-bcel');
-const payCod = document.getElementById('pay-cod');
 const productForm = document.getElementById('product-form');
 const productDisplay = document.getElementById('product-display');
 const adminModal = document.getElementById('admin-modal');
@@ -93,6 +91,8 @@ loginAdminBtn.addEventListener('click', () => {
         isAdmin = false;
         openModalBtn.style.display = 'none';
         openCategoryModalBtn.style.display = 'none';
+        document.getElementById('open-points-admin-btn').style.display = 'none';
+        document.getElementById('points-admin-modal').style.display = 'none';
         loginAdminBtn.innerText = "🔐 ສຳລັບ Admin";
         renderProducts();
         showToast("🔒 ອອກຈາກລະບົບແອັດມິນແລ້ວ!");
@@ -140,7 +140,7 @@ database.ref('products').on('value', (snapshot) => {
     }
     cart = cart.map(cartItem => {
         const found = products.find(p => p.firebaseKey === cartItem.firebaseKey);
-        return found ? { firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img, ownerPhone: found.ownerPhone || null } : cartItem;
+        return found ? { ...cartItem, firebaseKey: found.firebaseKey, name: found.name, price: found.price, img: found.img, ownerPhone: found.ownerPhone || null, isPreorder: found.inStock === 'preorder' } : cartItem;
     });
     saveCart();
     renderProducts();
@@ -327,8 +327,9 @@ function addCategoryRows() {
 
 function addCategory() { addCategoryRows(); }
 
-function deleteCategory(key) {
-    if (!confirm(`ລຶບໝວດໝູ່ "${key}" ອອກ?\nສິນຄ້າທີ່ຢູ່ໃນໝວດໝູ່ນີ້ ຈະຖືກຍ້າຍໄປ "ອື່ນໆ" ອັດຕະໂນມັດ.`)) return;
+async function deleteCategory(key) {
+    const ok = await confirmDialog(`ລຶບໝວດໝູ່ "${key}" ອອກ?\nສິນຄ້າທີ່ຢູ່ໃນໝວດໝູ່ນີ້ ຈະຖືກຍ້າຍໄປ "ອື່ນໆ" ອັດຕະໂນມັດ.`, { icon: '🗑️', okText: 'ລຶບ', danger: true });
+    if (!ok) return;
     const toMove = products.filter(p => {
         const cats = Array.isArray(p.category) ? p.category : [p.category];
         return cats.includes(key);
@@ -757,12 +758,12 @@ productForm.addEventListener('submit', async function(e) {
     }
 });
 
-function deleteProduct(firebaseKey) {
-    if (confirm('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້?')) {
-        database.ref(`products/${firebaseKey}`).remove().then(() => {
-            showToast('🗑️ ລຶບສິນຄ້າອອກແລ້ວ!');
-        });
-    }
+async function deleteProduct(firebaseKey) {
+    const ok = await confirmDialog('ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສິນຄ້ານີ້?', { icon: '🗑️', okText: 'ລຶບ', danger: true });
+    if (!ok) return;
+    database.ref(`products/${firebaseKey}`).remove().then(() => {
+        showToast('🗑️ ລຶບສິນຄ້າອອກແລ້ວ!');
+    });
 }
 
 function editProduct(firebaseKey) {
@@ -825,7 +826,8 @@ editProductForm.addEventListener('submit', async function(e) {
     editSubmitBtn.textContent = '⏳ ກຳລັງບັນທຶກ...';
 
     if (imgFile1 || imgFile2 || imgFile3 || imgFile4 || imgFile5) {
-        showToast('⏳ ກຳລັງອັບໂຫຼດຮູບອາດ...', 'warning');
+      try {
+        showToast('⏳ ກຳລັງອັບໂຫຼດຮູບພາບ...', 'warning');
         const [url1, url2, url3, url4, url5] = await Promise.all([
             imgFile1 ? uploadToImgbb(imgFile1) : Promise.resolve(null),
             imgFile2 ? uploadToImgbb(imgFile2) : Promise.resolve(null),
@@ -838,6 +840,12 @@ editProductForm.addEventListener('submit', async function(e) {
         if (url3) updates.img3 = url3;
         if (url4) updates.img4 = url4;
         if (url5) updates.img5 = url5;
+      } catch (err) {
+        showToast('❌ ອັບໂຫຼດຮູບບໍ່ສຳເລັດ: ' + err.message, 'warning');
+        editSubmitBtn.disabled = false;
+        editSubmitBtn.textContent = '💾 ບັນທຶກການແກ້ໄຂ';
+        return;
+      }
     }
 
     database.ref(`products/${firebaseKey}`).update(updates).then(() => {
@@ -851,58 +859,141 @@ editProductForm.addEventListener('submit', async function(e) {
     });
 });
 
+function getCartTotal() {
+    return cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
+}
+function pointsNeeded(totalKip) {
+    return Math.ceil(totalKip / KIP_PER_POINT);
+}
+
 function openCheckoutModal() {
     if (cart.length === 0) { showToast('❌ ກະຕ່າວ່າງເປົ່າ!', 'warning'); return; }
     cartDrawer.style.display = 'none';
-    let total = cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
-    checkoutTotalPrice.innerText = formatMoney(total);
-    bcelQrImg.src = `QrCode.jpeg`;
+    if (currentUser && currentUser.phone && !document.getElementById('c-phone').value) {
+        document.getElementById('c-phone').value = currentUser.phone;
+    }
+    updateCheckoutPayInfo();
     checkoutModal.style.display = 'flex';
+}
+
+function updateCheckoutPayInfo() {
+    const total = getCartTotal();
+    const need = pointsNeeded(total);
+    const warn = document.getElementById('pay-warning');
+    const btn = document.getElementById('checkout-submit-btn');
+    checkoutTotalPrice.innerText = formatMoney(total);
+    document.getElementById('pay-need').textContent = formatMoney(need);
+
+    if (!currentUsername || !currentUser) {
+        document.getElementById('pay-balance').textContent = '-';
+        document.getElementById('pay-after').textContent = '-';
+        warn.style.display = 'block';
+        warn.textContent = '🔒 ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ ເພື່ອຊຳລະດ້ວຍ Point';
+        btn.textContent = '🔑 ເຂົ້າສູ່ລະບົບ';
+        return;
+    }
+    const bal = currentUser.points || 0;
+    const after = bal - need;
+    document.getElementById('pay-balance').textContent = formatMoney(bal);
+    const afterEl = document.getElementById('pay-after');
+    afterEl.textContent = formatMoney(Math.max(after, 0));
+    afterEl.style.color = after < 0 ? '#ff4444' : '';
+    if (after < 0) {
+        warn.style.display = 'block';
+        warn.textContent = `⚠️ Point ບໍ່ພໍ — ຂາດອີກ ${formatMoney(-after)} Point`;
+        btn.textContent = '➕ ເຕີມ Point';
+    } else {
+        warn.style.display = 'none';
+        btn.textContent = `💎 ຊຳລະ ${formatMoney(need)} Point`;
+    }
 }
 
 closeEditModalBtn.addEventListener('click', () => { editModal.style.display = 'none'; });
 closeCheckoutBtn.addEventListener('click', () => { checkoutModal.style.display = 'none'; });
 
-checkoutForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const customerName = document.getElementById('c-name').value.trim();
-    const customerPhone = document.getElementById('c-phone').value.trim();
-    const customerAddress = document.getElementById('c-address').value.trim();
-    const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
-    const slipInput = document.getElementById('c-slip').files[0];
+let isPaying = false;
 
-    if (!slipInput) {
-        showToast("❌ ກະລຸນາແນບຫຼັກຖານການໂອນເງິນ BCEL!", "warning");
+checkoutForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (isPaying) return;
+    if (cart.length === 0) { showToast('❌ ກະຕ່າວ່າງເປົ່າ!', 'warning'); return; }
+
+    if (!currentUsername || !currentUser) {
+        checkoutModal.style.display = 'none';
+        switchAuthMode('login');
+        $('user-auth-modal').style.display = 'flex';
         return;
     }
 
-    showToast("⏳ ກຳລັງປະມວນຜົນອໍເດີ້...", "warning");
-    let total = cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
+    const total = getCartTotal();
+    const need = pointsNeeded(total);
+    if ((currentUser.points || 0) < need) {
+        checkoutModal.style.display = 'none';
+        showToast('⚠️ Point ບໍ່ພໍ ກະລຸນາເຕີມ Point ກ່ອນ', 'warning');
+        openTopupModal();
+        return;
+    }
 
-    function sendOrderToWhatsApp(slipUrl = null) {
-        const DEFAULT_PHONE = '2091142247';
-        const groups = {};
-        cart.forEach(item => {
-            const phone = (item.ownerPhone || DEFAULT_PHONE).replace(/\D/g, '');
-            if (!groups[phone]) groups[phone] = [];
-            groups[phone].push(item);
-        });
+    const customerName = document.getElementById('c-name').value.trim();
+    const customerPhone = document.getElementById('c-phone').value.trim();
+    const customerAddress = document.getElementById('c-address').value.trim();
+    const itemCount = cart.reduce((s, i) => s + (i.qty || 1), 0);
 
-    let methodText = 'ໂອນຜ່ານ BCEL One';
+    const ok = await confirmDialog(
+        `ຊຳລະ ${formatMoney(need)} Point\nເພື່ອສັ່ງຊື້ສິນຄ້າ ${itemCount} ອັນ ?`,
+        { title: 'ຢືນຢັນການຊຳລະ', icon: '💎', okText: 'ຊຳລະເລີຍ' }
+    );
+    if (!ok) return;
 
-        Object.entries(groups).forEach(([phone, items]) => {
-            let orderListText = "";
-            let groupTotal = 0;
-            items.forEach((item, index) => {
-                const qty = item.qty || 1;
-                orderListText += `${index + 1}. ${item.name}${item.isPreorder ? ' [🟡 Pre-order]' : ''} x${qty} (${formatMoney(item.price * qty)} ກີບ)\n`;
-                groupTotal += item.price * qty;
+    isPaying = true;
+    const submitBtn = document.getElementById('checkout-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ ກຳລັງຊຳລະ...';
+    const orderItems = cart.map(i => ({ ...i }));
+
+    try {
+        const result = await database.ref('users/' + currentUsername + '/points')
+            .transaction(cur => {
+                cur = cur || 0;
+                return cur < need ? undefined : cur - need;
             });
+        if (!result.committed) {
+            showToast('⚠️ Point ບໍ່ພໍ ຫຼື ມີການປ່ຽນແປງຍອດ ກະລຸນາລອງໃໝ່', 'warning');
+            return;
+        }
+        const newBalance = result.snapshot.val();
 
-            let msg = `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ!*\n\n*ລາຍການສິນຄ້າ:*\n${orderListText}\n*ຍອດລວມ:* ${formatMoney(groupTotal)} ກີບ\n\n*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${customerName}\n• ເບີໂທ: ${customerPhone}\n• ທີ່ຢູ່: ${customerAddress}\n• ວິທີຈ່າຍ: ${methodText}\n`;
-            if (slipUrl) msg += `• *ລິ້ງໃບສະລິບ:* ${slipUrl}\n`;
+        const orderNo = makeOrderNo();
 
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        database.ref('pointLogs/' + currentUsername).push({
+            amount: -need,
+            type: 'purchase',
+            balance: newBalance,
+            note: (orderNo + ' · ' + orderItems.map(i => `${i.name} x${i.qty || 1}`).join(', ')).slice(0, 300),
+            time: firebase.database.ServerValue.TIMESTAMP
+        }).catch(() => {});
+
+        // save the order so the customer can look it up later (lost slip, etc.)
+        database.ref('orders/' + currentUsername).push({
+            orderNo,
+            time: firebase.database.ServerValue.TIMESTAMP,
+            items: orderItems.map(i => ({
+                name: i.name,
+                price: i.price,
+                qty: i.qty || 1,
+                img: i.img || null,
+                ownerPhone: i.ownerPhone || null,
+                isPreorder: !!i.isPreorder
+            })),
+            total,
+            points: need,
+            balance: newBalance,
+            customerName, customerPhone, customerAddress
+        }).catch(() => showToast('⚠️ ບັນທຶກປະຫວັດການສັ່ງຊື້ບໍ່ສຳເລັດ ກະລຸນາແຄັບໜ້າຈໍເກັບໄວ້', 'warning'));
+
+        const links = buildOrderLinks(orderItems, {
+            customerName, customerPhone, customerAddress,
+            username: currentUsername, need, newBalance, orderNo
         });
 
         cart = [];
@@ -910,20 +1001,69 @@ checkoutForm.addEventListener('submit', function(e) {
         updateCartBadge();
         checkoutForm.reset();
         checkoutModal.style.display = 'none';
-    }
-
-    if (slipInput) {
-        const formData = new FormData();
-        formData.append("key", IMGBB_KEY);
-        formData.append("image", slipInput);
-        fetch("https://api.imgbb.com/1/upload", { method: "POST", body: formData })
-            .then(res => res.json())
-            .then(result => { sendOrderToWhatsApp(result.success ? result.data.url : null); })
-            .catch(() => sendOrderToWhatsApp());
-    } else {
-        sendOrderToWhatsApp();
+        showOrderDone(links, need, newBalance, orderNo);
+    } catch (err) {
+        showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
+    } finally {
+        isPaying = false;
+        submitBtn.disabled = false;
+        updateCheckoutPayInfo();
     }
 });
+
+/* ---------- WhatsApp order message (still sent, grouped by seller) ---------- */
+function buildOrderLinks(items, info) {
+    const DEFAULT_PHONE = '2091142247';
+    const groups = {};
+    items.forEach(item => {
+        const phone = (item.ownerPhone || DEFAULT_PHONE).replace(/\D/g, '');
+        if (!groups[phone]) groups[phone] = [];
+        groups[phone].push(item);
+    });
+
+    return Object.entries(groups).map(([phone, list]) => {
+        let orderListText = '';
+        let groupTotal = 0;
+        list.forEach((item, index) => {
+            const qty = item.qty || 1;
+            orderListText += `${index + 1}. ${item.name}${item.isPreorder ? ' [🟡 Pre-order]' : ''} x${qty} (${formatMoney(item.price * qty)} ກີບ)\n`;
+            groupTotal += item.price * qty;
+        });
+        const msg =
+            `*ມີອໍເດີ້ໃໝ່ຈາກເວັບໄຊ! (ຊຳລະດ້ວຍ Point ແລ້ວ ✅)*\n\n` +
+            (info.orderNo ? `*ເລກທີ່ອໍເດີ້:* ${info.orderNo}\n\n` : '') +
+            `*ລາຍການສິນຄ້າ:*\n${orderListText}\n` +
+            `*ຍອດລວມ:* ${formatMoney(groupTotal)} ກີບ\n\n` +
+            `*ຂໍ້ມູນຜູ້ຮັບ:*\n` +
+            `• ຊື່: ${info.customerName}\n` +
+            `• ເບີໂທ: ${info.customerPhone}\n` +
+            `• ທີ່ຢູ່: ${info.customerAddress}\n\n` +
+            `*ການຊຳລະ:*\n` +
+            `• ວິທີຈ່າຍ: 💎 Point\n` +
+            `• ຊື່ຜູ້ໃຊ້: ${info.username}\n` +
+            `• ຫັກ Point ທັງໝົດ: ${formatMoney(info.need)}\n` +
+            `• Point ຄົງເຫຼືອ: ${formatMoney(info.newBalance)}\n`;
+        return {
+            url: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,
+            count: list.reduce((s, i) => s + (i.qty || 1), 0)
+        };
+    });
+}
+
+function showOrderDone(links, need, newBalance, orderNo) {
+    // try to open WhatsApp straight away; the buttons below are the fallback
+    links.forEach(l => { try { window.open(l.url, '_blank'); } catch (e) {} });
+
+    $('order-done-msg').textContent =
+        (orderNo ? `ເລກທີ່ອໍເດີ້: ${orderNo}\n` : '') +
+        `ຫັກ ${formatMoney(need)} Point ແລ້ວ · ຄົງເຫຼືອ ${formatMoney(newBalance)} Point\n` +
+        `ຖ້າ WhatsApp ບໍ່ເປີດອັດຕະໂນມັດ ກົດປຸ່ມລຸ່ມນີ້ເພື່ອສົ່ງຂໍ້ຄວາມ`;
+    $('order-done-links').innerHTML = links.map((l, i) =>
+        `<a class="btn-submit order-wa-btn" href="${l.url}" target="_blank" rel="noopener">💬 ສົ່ງຂໍ້ຄວາມຫາຜູ້ຂາຍ${links.length > 1 ? ' #' + (i + 1) : ''} (${l.count} ອັນ)</a>`
+    ).join('');
+    $('order-done-modal').style.display = 'flex';
+}
+$('order-done-close').addEventListener('click', () => { $('order-done-modal').style.display = 'none'; });
 
 function clearSearch() {
     const input = document.getElementById('search-input');
@@ -931,10 +1071,6 @@ function clearSearch() {
     renderProducts();
 }
 
-payBcel.addEventListener('change', () => {
-    qrcodeSection.style.display = 'block';
-    document.getElementById('slip-upload-section').style.display = 'block';
-});
 
 function showLoginView() {
     document.getElementById('login-form-view').style.display = 'block';
@@ -956,6 +1092,7 @@ function submitAdminLogin() {
             isAdmin = true;
             openModalBtn.style.display = 'block';
             openCategoryModalBtn.style.display = 'block';
+            document.getElementById('open-points-admin-btn').style.display = 'block';
             loginAdminBtn.innerText = "🔓 ອອກຈາກແອັດມິນ (Logout)";
             adminLoginModal.style.display = 'none';
             renderProducts();
@@ -963,6 +1100,36 @@ function submitAdminLogin() {
         } else {
             showToast("❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!", "warning");
         }
+    });
+}
+
+/* ---------- custom confirm dialog (replaces browser confirm/alert) ---------- */
+function confirmDialog(message, opts = {}) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('confirm-modal');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        document.getElementById('confirm-icon').textContent = opts.icon || '❓';
+        document.getElementById('confirm-title').textContent = opts.title || '';
+        document.getElementById('confirm-title').style.display = opts.title ? 'block' : 'none';
+        document.getElementById('confirm-msg').textContent = message;
+        okBtn.textContent = opts.okText || 'ຕົກລົງ';
+        cancelBtn.textContent = opts.cancelText || 'ຍົກເລີກ';
+        okBtn.classList.toggle('danger', !!opts.danger);
+
+        const done = (val) => {
+            modal.style.display = 'none';
+            okBtn.onclick = cancelBtn.onclick = modal.onclick = null;
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') done(false); };
+        okBtn.onclick = () => done(true);
+        cancelBtn.onclick = () => done(false);
+        modal.onclick = (e) => { if (e.target === modal) done(false); };
+        document.addEventListener('keydown', onKey);
+        modal.style.display = 'flex';
+        okBtn.focus();
     });
 }
 
@@ -976,4 +1143,860 @@ function showToast(m, t = 'success') {
         toast.classList.add('fade-out');
         setTimeout(() => { toast.remove(); }, 500);
     }, 2500);
+}
+
+/* =====================================================================
+   USER LOGIN + POINT SYSTEM
+   Firebase paths:
+     userAuth/{username}           -> { hash }   (password hash)
+     users/{username}              -> { username, phone, points, createdAt }
+     pointLogs/{username}/{pushId} -> { amount, type, balance, time }
+   ===================================================================== */
+const ADMIN_WA = '2091142247';
+// ອັດຕາແລກປ່ຽນ: 1 Point = ຈັກກີບ (ປ່ຽນຕົວເລກນີ້ໃຫ້ຖືກຕາມທີ່ຮ້ານກຳນົດ)
+const KIP_PER_POINT = 1;
+const SESSION_KEY = 'fz_session';
+
+let currentUser = null;
+let currentUsername = null;
+let userRef = null;
+let logRef = null;
+let ordersRef = null;
+let myOrders = [];
+let prevPoints = null;
+let allUsers = {};
+let allUsersRef = null;
+
+
+function escapeHTML(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function hashPassword(username, password) {
+    return sha256(`fixedzone:${username}:${password}`);
+}
+function formatDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ---------- modal open/close ---------- */
+['user-auth-modal', 'account-modal', 'topup-modal', 'points-admin-modal', 'orders-modal', 'order-detail-modal'].forEach(id => {
+    $(id).addEventListener('click', (e) => { if (e.target === $(id)) $(id).style.display = 'none'; });
+});
+$('close-user-auth-btn').addEventListener('click', () => { $('user-auth-modal').style.display = 'none'; });
+$('close-account-btn').addEventListener('click', () => { $('account-modal').style.display = 'none'; });
+$('close-topup-btn').addEventListener('click', () => { $('topup-modal').style.display = 'none'; });
+$('close-orders-btn').addEventListener('click', () => { $('orders-modal').style.display = 'none'; });
+$('close-order-detail-btn').addEventListener('click', () => { $('order-detail-modal').style.display = 'none'; });
+$('close-points-admin-btn').addEventListener('click', () => { $('points-admin-modal').style.display = 'none'; });
+
+$('user-login-btn').addEventListener('click', () => {
+    switchAuthMode('login');
+    $('user-auth-modal').style.display = 'flex';
+});
+$('user-account-btn').addEventListener('click', () => {
+    $('account-modal').style.display = 'flex';
+});
+
+/* ---------- login / register form ---------- */
+let authMode = 'login';
+function switchAuthMode(mode) {
+    authMode = mode;
+    const isReg = mode === 'register';
+    $('auth-title').textContent = isReg ? '📝 ສະໝັກສະມາຊິກ' : '👤 ເຂົ້າສູ່ລະບົບ';
+    $('auth-tab-login').classList.toggle('active', !isReg);
+    $('auth-tab-register').classList.toggle('active', isReg);
+    $('auth-confirm-group').style.display = isReg ? 'block' : 'none';
+    $('auth-phone-group').style.display = isReg ? 'block' : 'none';
+    $('auth-password2').required = isReg;
+    $('auth-submit-btn').textContent = isReg ? '🚀 ສະໝັກສະມາຊິກ' : '🚀 ເຂົ້າສູ່ລະບົບ';
+    $('user-auth-form').reset();
+}
+
+$('user-auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = $('auth-username').value.trim().toLowerCase();
+    const password = $('auth-password').value;
+    const btn = $('auth-submit-btn');
+
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+        showToast('❌ ຊື່ຜູ້ໃຊ້ ໃຊ້ໄດ້ສະເພາະ a-z, 0-9, _ (3-20 ຕົວ)', 'warning');
+        return;
+    }
+    if (password.length < 6) {
+        showToast('❌ ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 6 ຕົວ', 'warning');
+        return;
+    }
+
+    btn.disabled = true;
+    try {
+        if (authMode === 'register') {
+            if (password !== $('auth-password2').value) {
+                showToast('❌ ລະຫັດຜ່ານບໍ່ກົງກັນ', 'warning');
+                return;
+            }
+            const phone = $('auth-phone').value.replace(/\D/g, '');
+            const hash = await hashPassword(username, password);
+            const result = await database.ref('userAuth/' + username)
+                .transaction(cur => cur ? undefined : { hash });
+            if (!result.committed) {
+                showToast('⚠️ ຊື່ຜູ້ໃຊ້ນີ້ມີຄົນໃຊ້ແລ້ວ', 'warning');
+                return;
+            }
+            await database.ref('users/' + username).set({
+                username, phone: phone || null, points: 0,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            startSession(username, hash);
+            $('user-auth-modal').style.display = 'none';
+            showToast('🎉 ສະໝັກສະມາຊິກສຳເລັດ!');
+        } else {
+            const hash = await hashPassword(username, password);
+            const snap = await database.ref('userAuth/' + username + '/hash').once('value');
+            if (!snap.exists() || snap.val() !== hash) {
+                showToast('❌ ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ', 'warning');
+                return;
+            }
+            startSession(username, hash);
+            $('user-auth-modal').style.display = 'none';
+            showToast('✅ ເຂົ້າສູ່ລະບົບສຳເລັດ!');
+        }
+        $('user-auth-form').reset();
+    } catch (err) {
+        showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+/* ---------- session ---------- */
+function startSession(username, hash) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ u: username, h: hash })); } catch (e) {}
+    attachUser(username);
+}
+
+function attachUser(username) {
+    detachUser();
+    currentUsername = username;
+    prevPoints = null;
+
+    userRef = database.ref('users/' + username);
+    userRef.on('value', (snap) => {
+        const data = snap.val();
+        if (!data) { userLogout(true); return; }
+        currentUser = data;
+        const pts = data.points || 0;
+        if (prevPoints !== null && pts > prevPoints) {
+            showToast(`💎 ໄດ້ຮັບ Point ເພີ່ມ +${formatMoney(pts - prevPoints)}!`);
+        }
+        prevPoints = pts;
+        updateUserUI();
+    });
+
+    logRef = database.ref('pointLogs/' + username).limitToLast(20);
+    logRef.on('value', (snap) => renderPointHistory(snap.val()));
+
+    ordersRef = database.ref('orders/' + username).limitToLast(50);
+    ordersRef.on('value', (snap) => renderOrderHistory(snap.val()));
+
+    gachaAttach(username);
+}
+
+function detachUser() {
+    if (userRef) userRef.off();
+    if (logRef) logRef.off();
+    if (ordersRef) ordersRef.off();
+    gachaDetach();
+    userRef = logRef = ordersRef = null;
+    myOrders = [];
+    currentUser = null;
+    currentUsername = null;
+}
+
+function userLogout(silent) {
+    detachUser();
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    $('account-modal').style.display = 'none';
+    $('topup-modal').style.display = 'none';
+    $('orders-modal').style.display = 'none';
+    $('order-detail-modal').style.display = 'none';
+    updateUserUI();
+    if (!silent) showToast('🔒 ອອກຈາກລະບົບແລ້ວ!');
+}
+
+function updateUserUI() {
+    const loggedIn = !!(currentUsername && currentUser);
+    $('user-login-btn').style.display = loggedIn ? 'none' : '';
+    $('user-account-btn').style.display = loggedIn ? '' : 'none';
+    if (checkoutModal.style.display === 'flex') updateCheckoutPayInfo();
+    if (!loggedIn) return;
+    const pts = formatMoney(currentUser.points || 0);
+    $('nav-username').textContent = currentUsername;
+    $('nav-points').textContent = pts;
+    $('account-username').textContent = '👤 ' + currentUsername;
+    $('account-points').textContent = pts;
+}
+
+function renderPointHistory(data) {
+    const box = $('point-history-list');
+    if (!data) { box.innerHTML = '<div class="history-empty">ຍັງບໍ່ມີປະຫວັດ</div>'; return; }
+    const rows = Object.values(data).sort((a, b) => (b.time || 0) - (a.time || 0));
+    box.innerHTML = rows.map(r => {
+        const plus = (r.amount || 0) > 0;
+        return `<div class="history-row">
+            <div>
+                <div class="history-type">${plus ? '➕ ເຕີມ Point' : (r.type === 'purchase' ? '🛒 ຊື້ສິນຄ້າ' : r.type === 'gacha' ? '🎁 ສຸ່ມກ່ອງ' : '➖ ຫັກ Point')}</div>
+                <div class="history-time">${formatDate(r.time)}</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="${plus ? 'history-plus' : 'history-minus'}">${plus ? '+' : ''}${formatMoney(r.amount)}</div>
+                <div class="history-time">ຄົງເຫຼືອ ${formatMoney(r.balance)}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* restore session on page load */
+(async function restoreSession() {
+    try {
+        const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+        if (!s || !s.u || !s.h) return;
+        const snap = await database.ref('userAuth/' + s.u + '/hash').once('value');
+        if (snap.exists() && snap.val() === s.h) attachUser(s.u);
+        else localStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
+})();
+
+/* ---------- top-up (contact admin) ---------- */
+function openTopupModal() {
+    if (!currentUsername) { $('user-auth-modal').style.display = 'flex'; return; }
+    const msg = `ສະບາຍດີແອັດມິນ, ຂ້ອຍຕ້ອງການເຕີມ Point\nຊື່ຜູ້ໃຊ້: ${currentUsername}\nຈຳນວນທີ່ຕ້ອງການເຕີມ: `;
+    $('topup-username').textContent = currentUsername;
+    $('topup-wa-link').href = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(msg)}`;
+    $('account-modal').style.display = 'none';
+    $('topup-modal').style.display = 'flex';
+}
+
+/* ---------- admin: manage points ---------- */
+$('open-points-admin-btn').addEventListener('click', () => {
+    if (!isAdmin) return;
+    $('points-admin-modal').style.display = 'flex';
+    if (!allUsersRef) {
+        allUsersRef = database.ref('users');
+        allUsersRef.on('value', (snap) => {
+            allUsers = snap.val() || {};
+            renderPointsAdminList();
+        });
+    }
+    renderPointsAdminList();
+});
+
+function renderPointsAdminList() {
+    const list = $('points-admin-list');
+    if (!list) return;
+    const q = ($('points-admin-search').value || '').trim().toLowerCase();
+    let users = Object.values(allUsers);
+    if (q) users = users.filter(u => (u.username || '').includes(q) || (u.phone || '').includes(q));
+    users.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+    $('points-admin-count').textContent = `ຜູ້ໃຊ້ທັງໝົດ ${Object.keys(allUsers).length} ຄົນ` + (q ? ` · ພົບ ${users.length} ຄົນ` : '');
+
+    if (users.length === 0) {
+        list.innerHTML = '<div class="history-empty">ບໍ່ພົບຜູ້ໃຊ້</div>';
+        return;
+    }
+    // keep typed amounts while re-rendering on realtime updates
+    const typed = {};
+    list.querySelectorAll('input[data-user]').forEach(i => { typed[i.dataset.user] = i.value; });
+
+    list.innerHTML = users.map(u => {
+        const name = escapeHTML(u.username);
+        return `<div class="pa-row">
+            <div class="pa-info">
+                <div class="pa-name">👤 ${name}</div>
+                <div class="pa-sub">${u.phone ? '📱 ' + escapeHTML(u.phone) : 'ບໍ່ມີເບີໂທ'} · ສະໝັກ ${formatDate(u.createdAt)}</div>
+            </div>
+            <div class="pa-points">💎 ${formatMoney(u.points || 0)}</div>
+            <div class="pa-actions">
+                <input type="number" min="1" placeholder="ຈຳນວນ" data-user="${name}" value="${escapeHTML(typed[u.username] || '')}">
+                <button class="pa-btn pa-add" onclick="adminAdjustPoints('${name}', 1)">➕ ເຕີມ</button>
+                <button class="pa-btn pa-sub-btn" onclick="adminAdjustPoints('${name}', -1)">➖ ຫັກ</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function adminAdjustPoints(username, sign) {
+    if (!isAdmin) { showToast('❌ ສະເພາະແອັດມິນເທົ່ານັ້ນ', 'warning'); return; }
+    const input = document.querySelector(`#points-admin-list input[data-user="${username}"]`);
+    const amount = parseInt(input ? input.value : 0, 10);
+    if (!amount || amount <= 0) { showToast('❌ ກະລຸນາໃສ່ຈຳນວນ Point ໃຫ້ຖືກຕ້ອງ', 'warning'); return; }
+    const delta = sign * amount;
+    const verb = delta > 0 ? 'ເຕີມ' : 'ຫັກ';
+    const ok = await confirmDialog(`${verb} ${formatMoney(amount)} Point ໃຫ້ຜູ້ໃຊ້ "${username}" ?`, {
+        icon: delta > 0 ? '➕' : '➖',
+        okText: 'ຕົກລົງ',
+        danger: delta < 0
+    });
+    if (!ok) return;
+
+    database.ref('users/' + username + '/points').transaction((cur) => {
+        const next = (cur || 0) + delta;
+        return next < 0 ? undefined : next;
+    }, (err, committed, snap) => {
+        if (err) { showToast('❌ ' + err.message, 'warning'); return; }
+        if (!committed) { showToast('⚠️ Point ຂອງຜູ້ໃຊ້ບໍ່ພໍໃຫ້ຫັກ', 'warning'); return; }
+        database.ref('pointLogs/' + username).push({
+            amount: delta,
+            type: delta > 0 ? 'topup' : 'deduct',
+            balance: snap.val(),
+            time: firebase.database.ServerValue.TIMESTAMP
+        });
+        if (input) input.value = '';
+        showToast(`✅ ${verb} ${formatMoney(amount)} Point ໃຫ້ ${username} ແລ້ວ!`);
+    });
+}
+
+
+/* =====================================================================
+   ORDER HISTORY
+   Firebase path: orders/{username}/{pushId} -> { orderNo, time, items[],
+   total, points, balance, customerName, customerPhone, customerAddress }
+   ===================================================================== */
+function makeOrderNo() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `FZ${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}-${rand}`;
+}
+
+function orderItemCount(o) {
+    return (o.items || []).reduce((sum, i) => sum + (i.qty || 1), 0);
+}
+
+function renderOrderHistory(data) {
+    myOrders = data
+        ? Object.entries(data).map(([key, v]) => ({ key, ...v })).sort((a, b) => (b.time || 0) - (a.time || 0))
+        : [];
+    const box = $('order-history-list');
+    if (!box) return;
+    $('order-count-badge').textContent = myOrders.length ? `(${myOrders.length})` : '';
+    if (myOrders.length === 0) {
+        box.innerHTML = '<div class="history-empty">ຍັງບໍ່ມີປະຫວັດການສັ່ງຊື້</div>';
+        return;
+    }
+    box.innerHTML = myOrders.map(o => {
+        const first = (o.items || [])[0];
+        const more = (o.items || []).length - 1;
+        const thumb = first && first.img
+            ? `<img class="order-thumb" src="${escapeHTML(first.img)}" alt="" onerror="this.style.visibility='hidden'">`
+            : `<div class="order-thumb"></div>`;
+        return `<div class="order-card" onclick="openOrderDetail('${o.key}')">
+            ${thumb}
+            <div class="order-card-info">
+                <div class="order-card-no">🧾 ${escapeHTML(o.orderNo || '-')}</div>
+                <div class="order-card-name">${escapeHTML(first ? first.name : '-')}${more > 0 ? ` <span class="order-more">+${more}</span>` : ''}</div>
+                <div class="history-time">${formatDate(o.time)} · ${orderItemCount(o)} ອັນ</div>
+            </div>
+            <div class="order-card-pts">💎 ${formatMoney(o.points || 0)}</div>
+        </div>`;
+    }).join('');
+}
+
+function openOrdersModal() {
+    if (!currentUsername) { $('user-auth-modal').style.display = 'flex'; return; }
+    $('orders-modal').style.display = 'flex';
+}
+
+function buildOrderText(o) {
+    const lines = (o.items || []).map((i, idx) =>
+        `${idx + 1}. ${i.name}${i.isPreorder ? ' [Pre-order]' : ''} x${i.qty || 1} (${formatMoney(i.price * (i.qty || 1))} ກີບ)`
+    ).join('\n');
+    return `ໃບສັ່ງຊື້ FIXED ZONE\n` +
+        `ເລກທີ່ອໍເດີ້: ${o.orderNo || '-'}\n` +
+        `ວັນທີ: ${formatDate(o.time)}\n` +
+        `ຊື່ຜູ້ໃຊ້: ${currentUsername}\n\n` +
+        `ລາຍການສິນຄ້າ:\n${lines}\n\n` +
+        `ຍອດສິນຄ້າ: ${formatMoney(o.total || 0)} ກີບ\n` +
+        `ຊຳລະດ້ວຍ Point: ${formatMoney(o.points || 0)}\n` +
+        `Point ຄົງເຫຼືອຫຼັງຊຳລະ: ${formatMoney(o.balance || 0)}\n\n` +
+        `ຜູ້ຮັບ: ${o.customerName || '-'}\n` +
+        `ເບີໂທ: ${o.customerPhone || '-'}\n` +
+        `ທີ່ຢູ່: ${o.customerAddress || '-'}`;
+}
+
+function openOrderDetail(key) {
+    const o = myOrders.find(x => x.key === key);
+    if (!o) return;
+    const rows = (o.items || []).map(i => {
+        const qty = i.qty || 1;
+        return `<div class="slip-item">
+            <div class="slip-item-name">${escapeHTML(i.name)}${i.isPreorder ? ' <span class="slip-pre">Pre-order</span>' : ''}
+                <div class="history-time">${formatMoney(i.price)} ກີບ × ${qty}</div>
+            </div>
+            <div class="slip-item-price">${formatMoney(i.price * qty)}</div>
+        </div>`;
+    }).join('');
+    $('order-detail-content').innerHTML = `
+        <div class="slip-head">
+            <div class="slip-no">🧾 ${escapeHTML(o.orderNo || '-')}</div>
+            <div class="history-time">${formatDate(o.time)}</div>
+        </div>
+        ${rows}
+        <div class="slip-sum"><span>ຍອດສິນຄ້າ</span><b>${formatMoney(o.total || 0)} ກີບ</b></div>
+        <div class="slip-sum"><span>ຊຳລະດ້ວຍ Point</span><b>💎 ${formatMoney(o.points || 0)}</b></div>
+        <div class="slip-sum"><span>Point ຄົງເຫຼືອຫຼັງຊຳລະ</span><b>${formatMoney(o.balance || 0)}</b></div>
+        <div class="slip-ship">
+            <div>👤 ${escapeHTML(o.customerName || '-')}</div>
+            <div>📞 ${escapeHTML(o.customerPhone || '-')}</div>
+            <div>📍 ${escapeHTML(o.customerAddress || '-')}</div>
+        </div>
+        <button class="btn-submit" style="margin-top:14px;background-color:#25D366;" onclick="resendOrderWhatsApp('${o.key}')">💬 ສົ່ງຂໍ້ຄວາມຫາຜູ້ຂາຍອີກຄັ້ງ</button>
+        <button class="btn-submit" style="margin-top:8px;background-color:#2d2d2d;border:1px solid #00a8cc;color:#00a8cc;" onclick="copyOrderText('${o.key}')">📋 ສຳເນົາໃບສັ່ງຊື້</button>`;
+    $('order-detail-modal').style.display = 'flex';
+}
+
+function resendOrderWhatsApp(key) {
+    const o = myOrders.find(x => x.key === key);
+    if (!o) return;
+    const links = buildOrderLinks(o.items || [], {
+        customerName: o.customerName || '', customerPhone: o.customerPhone || '',
+        customerAddress: o.customerAddress || '', username: currentUsername,
+        need: o.points || 0, newBalance: o.balance || 0, orderNo: o.orderNo
+    });
+    links.forEach(l => window.open(l.url, '_blank'));
+}
+
+async function copyOrderText(key) {
+    const o = myOrders.find(x => x.key === key);
+    if (!o) return;
+    const text = buildOrderText(o);
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e2) {}
+        ta.remove();
+    }
+    showToast('📋 ສຳເນົາໃບສັ່ງຊື້ແລ້ວ!');
+}
+
+
+/* =====================================================================
+   GACHA BOX (ກ່ອງສຸ່ມ) — Limited Edition shirt with pity guarantee
+   Firebase paths:
+     gachaConfig                  -> { price, rate, pity, refundTiers[{amount,weight}], stock, directPrice, name, img, active }
+     users/{username}             -> + gachaPity (misses in a row), gachaSpins (total)
+     gachaLogs/{username}/{id}    -> { time, spinNo, win, guaranteed, price, refund, balance }
+     gachaWins/{username}/{id}    -> { time, guaranteed, claimed, prize, img, orderNo }
+   NOTE: the draw runs in the browser (inside one Firebase transaction so the
+   Point deduction, refund and pity counter change together). It is fine for a
+   small community shop, but it is not tamper-proof.
+   ===================================================================== */
+const GACHA_DEFAULTS = {
+    price: 10000,        // Point per spin
+    rate: 0.015,         // chance of the shirt per spin (1.5%)
+    pity: 40,            // guaranteed on this spin if no win before
+    // ຖ້າບໍ່ໄດ້ເສື້ອ: ສຸ່ມວ່າຈະໄດ້ Point ຄືນເທົ່າໃດ (weight = ນ້ຳໜັກໂອກາດ, ລວມເທົ່າໃດກໍ່ໄດ້)
+    // ຄ່າເລີ່ມຕົ້ນ: ໄດ້ຄືນ 20% ຂອງຄັ້ງທີ່ພາດ (1,000 = 15%, 2,000 = 5%), ອີກ 80% ບໍ່ໄດ້ຄືນ, ຄ່າສະເລ່ຍ ≈ 250 Point
+    refundTiers: [
+        { amount: 0,    weight: 80 },
+        { amount: 1000, weight: 15 },
+        { amount: 2000, weight: 5 }
+    ],
+    stock: 0,            // shirts left (0 = sold out until admin sets it)
+    directPrice: 0,      // normal shop price, shown for comparison (0 = hide)
+    name: 'ເສື້ອ Limited Edition',
+    img: '',
+    active: true
+};
+let gachaCfg = { ...GACHA_DEFAULTS };
+let gachaWinsRef = null;
+let gachaLogRef = null;
+let gachaWins = [];
+let gachaLogs = [];
+let gachaBusy = false;
+
+database.ref('gachaConfig').on('value', (snap) => {
+    gachaCfg = { ...GACHA_DEFAULTS, ...(snap.val() || {}) };
+    renderGacha();
+});
+
+function gachaAttach(username) {
+    gachaDetach();
+    gachaWinsRef = database.ref('gachaWins/' + username);
+    gachaWinsRef.on('value', (snap) => {
+        gachaWins = Object.entries(snap.val() || {})
+            .map(([key, v]) => ({ key, ...v }))
+            .sort((a, b) => (b.time || 0) - (a.time || 0));
+        renderGacha();
+    });
+    gachaLogRef = database.ref('gachaLogs/' + username).limitToLast(10);
+    gachaLogRef.on('value', (snap) => {
+        gachaLogs = Object.values(snap.val() || {}).sort((a, b) => (b.time || 0) - (a.time || 0));
+        renderGacha();
+    });
+}
+
+function gachaDetach() {
+    if (gachaWinsRef) gachaWinsRef.off();
+    if (gachaLogRef) gachaLogRef.off();
+    gachaWinsRef = gachaLogRef = null;
+    gachaWins = [];
+    gachaLogs = [];
+    if ($('gacha-badge')) renderGacha();
+}
+
+// clean up the tier list from Firebase (ignore broken rows, never refund >= price)
+function gachaTiers(cfg = gachaCfg) {
+    const raw = Array.isArray(cfg.refundTiers) ? cfg.refundTiers : GACHA_DEFAULTS.refundTiers;
+    const tiers = raw
+        .map(t => ({ amount: Math.floor(Number(t && t.amount)), weight: Number(t && t.weight) }))
+        .filter(t => t.amount >= 0 && t.amount < cfg.price && t.weight > 0);
+    return tiers.length ? tiers : [{ amount: 0, weight: 1 }];
+}
+function gachaTierStats(cfg = gachaCfg) {
+    const tiers = gachaTiers(cfg);
+    const total = tiers.reduce((s, t) => s + t.weight, 0);
+    const list = tiers.map(t => ({ amount: t.amount, pct: t.weight / total * 100 }))
+        .sort((a, b) => b.amount - a.amount);
+    return {
+        list,
+        chance: list.filter(t => t.amount > 0).reduce((s, t) => s + t.pct, 0),   // % chance of getting ANY refund
+        expected: list.reduce((s, t) => s + t.amount * t.pct / 100, 0),           // average refund per miss
+        min: Math.min(...list.map(t => t.amount))
+    };
+}
+function gachaRandom() {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] / 4294967296;   // 0 <= x < 1
+}
+function gachaRollRefund(cfg) {
+    const tiers = gachaTiers(cfg);
+    let r = gachaRandom() * tiers.reduce((s, t) => s + t.weight, 0);
+    for (const t of tiers) { r -= t.weight; if (r < 0) return t.amount; }
+    return tiers[tiers.length - 1].amount;
+}
+function gachaWorstCase() {
+    const c = gachaCfg;
+    return (c.pity - 1) * (c.price - gachaTierStats().min) + c.price;
+}
+
+function renderGacha() {
+    const info = $('gacha-info');
+    if (!info) return;
+    const c = gachaCfg;
+    const loggedIn = !!(currentUsername && currentUser);
+    const pity = loggedIn ? (currentUser.gachaPity || 0) : 0;
+    const left = Math.max(c.pity - pity, 1);
+    const unclaimed = gachaWins.filter(w => !w.claimed);
+
+    // nav badge
+    const badge = $('gacha-badge');
+    badge.style.display = unclaimed.length ? 'inline-block' : 'none';
+    badge.textContent = unclaimed.length || '';
+
+    const soldOut = !c.active || (c.stock || 0) <= 0;
+    const rf = gachaTierStats();
+    info.innerHTML = `
+        <div class="gacha-prize">
+            ${c.img ? `<img src="${escapeHTML(c.img)}" alt="" onerror="this.style.display='none'">` : ''}
+            <div>
+                <div class="gacha-prize-name">${escapeHTML(c.name)}</div>
+                <div class="history-time">${soldOut ? '❌ ໝົດແລ້ວ' : `ເຫຼືອ ${formatMoney(c.stock)} ໂຕ`}</div>
+            </div>
+        </div>
+        <div class="gacha-rules">
+            <div>💎 ສຸ່ມຄັ້ງລະ <b>${formatMoney(c.price)}</b> Point</div>
+            <div>🎯 ໂອກາດໄດ້ເສື້ອ <b>${+(c.rate * 100).toFixed(2)}%</b> ຕໍ່ຄັ້ງ</div>
+            <div>🛡️ ສຸ່ມຄັ້ງທີ <b>${c.pity}</b> ການັນຕີໄດ້ເສື້ອແນ່ນອນ (ຈ່າຍສູງສຸດ ≈ ${formatMoney(gachaWorstCase())} Point)</div>
+            <div>↩️ ຖ້າບໍ່ໄດ້ເສື້ອ ມີໂອກາດໄດ້ Point ຄືນ <b>${+rf.chance.toFixed(1)}%</b></div>
+            <div class="history-time" style="padding-left:22px;">${rf.list.filter(t => t.amount > 0).map(t => `${formatMoney(t.amount)} Point (${+t.pct.toFixed(1)}%)`).join(' · ')}</div>
+            ${c.directPrice ? `<div>🛒 ຊື້ຕົງໜ້າເວັບ: <b>${formatMoney(c.directPrice)}</b> ກີບ</div>` : ''}
+        </div>
+        ${loggedIn ? `
+        <div class="gacha-progress"><div style="width:${Math.min(100, pity / c.pity * 100)}%"></div></div>
+        <div class="history-time" style="text-align:center;margin-bottom:12px;">ສຸ່ມພາດຕິດກັນ ${pity} ຄັ້ງ · ອີກ <b>${left}</b> ຄັ້ງການັນຕີ</div>`
+        : `<div class="history-time" style="text-align:center;margin-bottom:12px;">🔒 ເຂົ້າສູ່ລະບົບກ່ອນເພື່ອສຸ່ມ</div>`}
+    `;
+
+    const spinBtn = $('gacha-spin-btn');
+    spinBtn.disabled = gachaBusy || soldOut;
+    spinBtn.style.opacity = spinBtn.disabled ? '0.5' : '1';
+    spinBtn.textContent = gachaBusy ? '⏳ ກຳລັງສຸ່ມ...' : soldOut ? '❌ ເສື້ອໝົດແລ້ວ' : `🎁 ສຸ່ມ (${formatMoney(c.price)} Point)`;
+
+    $('gacha-unclaimed').innerHTML = unclaimed.map(w => `
+        <div class="gacha-unclaimed-row">
+            <span>🎉 ມີເສື້ອທີ່ຍັງບໍ່ໄດ້ຮັບ (${formatDate(w.time)})</span>
+            <button class="pa-btn pa-add" onclick="openGachaClaim('${w.key}')">ຮັບເລີຍ</button>
+        </div>`).join('');
+
+    $('gacha-history').innerHTML = gachaLogs.length ? `
+        <label style="color:#ccc;font-size:14px;display:block;margin:14px 0 8px;"><b>📋 ປະຫວັດການສຸ່ມ (10 ຄັ້ງຫຼ້າສຸດ)</b></label>
+        ${gachaLogs.map(l => `
+            <div class="history-row">
+                <div>
+                    <div class="history-type">${l.win ? (l.guaranteed ? '🛡️ ໄດ້ເສື້ອ (ການັນຕີ)' : '🎉 ໄດ້ເສື້ອ!') : '😢 ບໍ່ໄດ້'}</div>
+                    <div class="history-time">${formatDate(l.time)} · ຄັ້ງທີ ${l.spinNo}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="history-minus">-${formatMoney((l.price || 0) - (l.refund || 0))}</div>
+                    <div class="history-time">ຄົງເຫຼືອ ${formatMoney(l.balance)}</div>
+                </div>
+            </div>`).join('')}` : '';
+}
+
+function openGachaModal() {
+    $('gacha-result').innerHTML = '';
+    $('gacha-box').classList.remove('shaking');
+    $('gacha-modal').style.display = 'flex';
+    renderGacha();
+    renderGachaAdmin();
+}
+$('open-gacha-btn').addEventListener('click', openGachaModal);
+$('close-gacha-btn').addEventListener('click', () => { $('gacha-modal').style.display = 'none'; });
+$('close-gacha-claim-btn').addEventListener('click', () => { $('gacha-claim-modal').style.display = 'none'; });
+['gacha-modal', 'gacha-claim-modal'].forEach(id => {
+    $(id).addEventListener('click', (e) => { if (e.target === $(id)) $(id).style.display = 'none'; });
+});
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function gachaSpin() {
+    if (gachaBusy) return;
+    if (!currentUsername || !currentUser) {
+        $('gacha-modal').style.display = 'none';
+        switchAuthMode('login');
+        $('user-auth-modal').style.display = 'flex';
+        return;
+    }
+    const cfg = { ...gachaCfg };
+    if (!cfg.active || (cfg.stock || 0) <= 0) { showToast('❌ ເສື້ອໝົດແລ້ວ', 'warning'); return; }
+    if ((currentUser.points || 0) < cfg.price) {
+        showToast('⚠️ Point ບໍ່ພໍ ກະລຸນາເຕີມ Point ກ່ອນ', 'warning');
+        $('gacha-modal').style.display = 'none';
+        openTopupModal();
+        return;
+    }
+    const ok = await confirmDialog(
+        `ສຸ່ມ 1 ຄັ້ງ ໃຊ້ ${formatMoney(cfg.price)} Point\nຖ້າບໍ່ໄດ້ເສື້ອ ມີໂອກາດໄດ້ Point ຄືນ ${+gachaTierStats(cfg).chance.toFixed(1)}%`,
+        { title: 'ຢືນຢັນການສຸ່ມ', icon: '🎁', okText: 'ສຸ່ມເລີຍ' }
+    );
+    if (!ok) return;
+
+    gachaBusy = true;
+    renderGacha();
+    $('gacha-result').innerHTML = '';
+    const username = currentUsername;
+    let outcome = null;
+    // roll once, outside the transaction, so a transaction retry can never re-roll
+    const lucky = gachaRandom() < cfg.rate;
+    const missRefund = gachaRollRefund(cfg);
+
+    try {
+        // one transaction: deduct Point, refund on miss, update pity counter
+        const res = await database.ref('users/' + username).transaction((cur) => {
+            outcome = null;
+            if (!cur) return;
+            const pts = cur.points || 0;
+            if (pts < cfg.price) return;
+            const spinNo = (cur.gachaPity || 0) + 1;
+            const win = lucky || spinNo >= cfg.pity;
+            outcome = { win, guaranteed: win && !lucky, spinNo };
+            cur.points = pts - cfg.price + (win ? 0 : missRefund);
+            cur.gachaPity = win ? 0 : spinNo;
+            cur.gachaSpins = (cur.gachaSpins || 0) + 1;
+            return cur;
+        });
+        if (!res.committed || !outcome) {
+            showToast('⚠️ Point ບໍ່ພໍ ຫຼື ມີການປ່ຽນແປງຍອດ ກະລຸນາລອງໃໝ່', 'warning');
+            return;
+        }
+        const newBalance = res.snapshot.val().points || 0;
+        const refund = outcome.win ? 0 : missRefund;
+
+        // save everything FIRST (so closing the tab during the animation can't lose a win)
+        database.ref('pointLogs/' + username).push({
+            amount: -(cfg.price - refund),
+            type: 'gacha',
+            balance: newBalance,
+            note: outcome.win ? 'ກ່ອງສຸ່ມ: ໄດ້ເສື້ອ' : 'ກ່ອງສຸ່ມ: ບໍ່ໄດ້ເສື້ອ (ຄືນ ' + refund + ' Point)',
+            time: firebase.database.ServerValue.TIMESTAMP
+        }).catch(() => {});
+        database.ref('gachaLogs/' + username).push({
+            time: firebase.database.ServerValue.TIMESTAMP,
+            spinNo: outcome.spinNo, win: outcome.win, guaranteed: outcome.guaranteed,
+            price: cfg.price, refund, balance: newBalance
+        }).catch(() => {});
+
+        let winRef = null;
+        if (outcome.win) {
+            winRef = database.ref('gachaWins/' + username).push({
+                time: firebase.database.ServerValue.TIMESTAMP,
+                guaranteed: outcome.guaranteed,
+                claimed: false,
+                prize: cfg.name,
+                img: cfg.img || null
+            });
+            database.ref('gachaConfig/stock').transaction(c => (c || 0) > 0 ? c - 1 : c);
+        }
+
+        // little animation before revealing
+        const box = $('gacha-box');
+        box.classList.add('shaking');
+        await sleep(1400);
+        box.classList.remove('shaking');
+
+        if (outcome.win) {
+            box.textContent = '👕';
+            $('gacha-result').innerHTML = `<div class="gacha-win">🎉 ຍິນດີນຳ! ເຈົ້າໄດ້ ${escapeHTML(cfg.name)}${outcome.guaranteed ? '<div class="history-time">🛡️ ຈາກການັນຕີ</div>' : ''}</div>`;
+            openGachaClaim(winRef.key);
+        } else {
+            box.textContent = '📦';
+            $('gacha-result').innerHTML = `<div class="gacha-miss">😢 ບໍ່ໄດ້ເສື້ອ · ${refund > 0 ? `🎉 ໄດ້ Point ຄືນ ${formatMoney(refund)}` : 'ບໍ່ໄດ້ Point ຄືນ'}<div class="history-time">ອີກ ${Math.max(cfg.pity - outcome.spinNo, 1)} ຄັ້ງການັນຕີ</div></div>`;
+        }
+    } catch (err) {
+        showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
+    } finally {
+        gachaBusy = false;
+        renderGacha();
+    }
+}
+
+/* ---------- claim the shirt (shipping info + order + WhatsApp) ---------- */
+function openGachaClaim(key) {
+    $('gc-win-key').value = key;
+    if (currentUser && currentUser.phone && !$('gc-phone').value) $('gc-phone').value = currentUser.phone;
+    $('gacha-claim-modal').style.display = 'flex';
+}
+
+$('gacha-claim-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentUsername) return;
+    const key = $('gc-win-key').value;
+    const name = $('gc-name').value.trim();
+    const phone = $('gc-phone').value.trim();
+    const address = $('gc-address').value.trim();
+    const btn = $('gc-submit-btn');
+    btn.disabled = true;
+    try {
+        // claimed false -> true exactly once
+        const t = await database.ref(`gachaWins/${currentUsername}/${key}/claimed`)
+            .transaction(c => c ? undefined : true);
+        if (!t.committed) { showToast('⚠️ ເສື້ອນີ້ຖືກຮັບໄປແລ້ວ', 'warning'); return; }
+
+        const win = gachaWins.find(w => w.key === key) || {};
+        const prize = win.prize || gachaCfg.name;
+        const orderNo = makeOrderNo();
+        await database.ref('orders/' + currentUsername).push({
+            orderNo,
+            time: firebase.database.ServerValue.TIMESTAMP,
+            items: [{ name: prize + ' (ກ່ອງສຸ່ມ)', price: 0, qty: 1, img: win.img || null, ownerPhone: null, isPreorder: false }],
+            total: 0, points: 0, balance: (currentUser && currentUser.points) || 0,
+            customerName: name, customerPhone: phone, customerAddress: address,
+            gachaPrize: true
+        }).catch(() => showToast('⚠️ ບັນທຶກປະຫວັດບໍ່ສຳເລັດ ກະລຸນາແຄັບໜ້າຈໍເກັບໄວ້', 'warning'));
+        database.ref(`gachaWins/${currentUsername}/${key}`).update({ orderNo }).catch(() => {});
+
+        const msg =
+            `*🎁 ມີຜູ້ໄດ້ເສື້ອຈາກກ່ອງສຸ່ມ!*\n\n` +
+            `*ເລກທີ່ອໍເດີ້:* ${orderNo}\n` +
+            `*ຂອງລາງວັນ:* ${prize}${win.guaranteed ? ' (ການັນຕີ 🛡️)' : ''}\n` +
+            `*ຊື່ຜູ້ໃຊ້:* ${currentUsername}\n\n` +
+            `*ຂໍ້ມູນຜູ້ຮັບ:*\n• ຊື່: ${name}\n• ເບີໂທ: ${phone}\n• ທີ່ຢູ່: ${address}`;
+        const url = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(msg)}`;
+
+        $('gacha-claim-form').reset();
+        $('gacha-claim-modal').style.display = 'none';
+        showToast('✅ ບັນທຶກແລ້ວ! ກຳລັງເປີດ WhatsApp ຫາຮ້ານ');
+        try { window.open(url, '_blank'); } catch (err) {}
+        $('gacha-result').innerHTML += `<a class="btn-submit order-wa-btn" href="${url}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:10px;">💬 ສົ່ງຂໍ້ຄວາມຫາຮ້ານ (ເລກທີ່ ${orderNo})</a>`;
+    } catch (err) {
+        showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+/* ---------- admin: edit gacha settings ---------- */
+function renderGachaAdmin() {
+    const box = $('gacha-admin');
+    if (!box) return;
+    if (!isAdmin) { box.innerHTML = ''; return; }
+    const c = gachaCfg;
+    const field = (id, label, val, type = 'number', step = '') =>
+        `<div class="form-group"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHTML(val)}" ${step ? `step="${step}"` : ''}></div>`;
+    box.innerHTML = `
+        <div style="border-top:1px solid #2d2d2d;margin-top:16px;padding-top:14px;">
+            <label style="color:#ffaa00;font-size:14px;display:block;margin-bottom:10px;"><b>🛠️ ຕັ້ງຄ່າກ່ອງສຸ່ມ (ແອັດມິນ)</b></label>
+            ${field('ga-name', 'ຊື່ເສື້ອ', c.name, 'text')}
+            ${field('ga-img', 'ລິ້ງຮູບເສື້ອ', c.img || '', 'text')}
+            ${field('ga-stock', 'ຈຳນວນເສື້ອທີ່ເຫຼືອ', c.stock)}
+            ${field('ga-price', 'ລາຄາສຸ່ມ (Point)', c.price)}
+            ${field('ga-rate', 'ໂອກາດໄດ້ເສື້ອ (%)', +(c.rate * 100).toFixed(2), 'number', '0.01')}
+            ${field('ga-pity', 'ການັນຕີຄັ້ງທີ', c.pity)}
+            <div class="form-group">
+                <label for="ga-tiers">↩️ Point ຄືນເມື່ອບໍ່ໄດ້ເສື້ອ (1 ແຖວ = ຈຳນວນ:ນ້ຳໜັກໂອກາດ)</label>
+                <textarea id="ga-tiers" rows="6" oninput="updateGachaTiersPreview()">${escapeHTML(gachaTiers().map(t => t.amount + ':' + t.weight).join('\n'))}</textarea>
+                <small id="ga-tiers-preview" style="color:#888;font-size:12px;display:block;margin-top:4px;"></small>
+            </div>
+            ${field('ga-direct', 'ລາຄາຊື້ຕົງ (ກີບ, 0 = ບໍ່ສະແດງ)', c.directPrice || 0)}
+            <label style="color:#ccc;font-size:14px;display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+                <input type="checkbox" id="ga-active" ${c.active ? 'checked' : ''}> ເປີດໃຫ້ສຸ່ມ
+            </label>
+            <button class="btn-submit" onclick="saveGachaConfig()" style="background-color:#ffaa00;color:#121212;">💾 ບັນທຶກການຕັ້ງຄ່າ</button>
+        </div>`;
+    updateGachaTiersPreview();
+}
+
+function parseGachaTiers(text) {
+    const tiers = [];
+    for (const line of String(text || '').split('\n')) {
+        const l = line.trim();
+        if (!l) continue;
+        const m = l.match(/^(\d+)\s*[:=,\s]\s*(\d+(?:\.\d+)?)%?$/);
+        if (!m) return null;
+        tiers.push({ amount: parseInt(m[1], 10), weight: parseFloat(m[2]) });
+    }
+    return tiers;
+}
+function updateGachaTiersPreview() {
+    const el = $('ga-tiers-preview');
+    if (!el) return;
+    const price = parseInt($('ga-price').value, 10) || gachaCfg.price;
+    const tiers = parseGachaTiers($('ga-tiers').value);
+    if (!tiers || !tiers.length || tiers.some(t => t.amount >= price || !(t.weight > 0))) {
+        el.textContent = '⚠️ ຮູບແບບບໍ່ຖືກ (ຕົວຢ່າງ 1000:22) ແລະ ຈຳນວນຕ້ອງໜ້ອຍກວ່າລາຄາສຸ່ມ';
+        el.style.color = '#ff4444';
+        return;
+    }
+    const st = gachaTierStats({ price, refundTiers: tiers });
+    el.style.color = '#888';
+    el.textContent = `ໂອກາດໄດ້ຄືນ ${+st.chance.toFixed(1)}% · ຄ່າສະເລ່ຍຄືນ ≈ ${formatMoney(Math.round(st.expected))} Point ຕໍ່ຄັ້ງທີ່ພາດ`;
+}
+
+function saveGachaConfig() {
+    if (!isAdmin) { showToast('❌ ສະເພາະແອັດມິນເທົ່ານັ້ນ', 'warning'); return; }
+    const price = parseInt($('ga-price').value, 10);
+    const rate = parseFloat($('ga-rate').value) / 100;
+    const pity = parseInt($('ga-pity').value, 10);
+    const refundTiers = parseGachaTiers($('ga-tiers').value);
+    const stock = Math.max(0, parseInt($('ga-stock').value, 10) || 0);
+    if (!(price > 0) || !(rate >= 0 && rate <= 1) || !(pity >= 1) || !refundTiers || !refundTiers.length || refundTiers.some(t => t.amount >= price || !(t.weight > 0))) {
+        showToast('❌ ກວດຕົວເລກອີກຄັ້ງ (Point ຄືນຕ້ອງເປັນ ຈຳນວນ:ນ້ຳໜັກ ແລະ ໜ້ອຍກວ່າລາຄາສຸ່ມ)', 'warning');
+        return;
+    }
+    database.ref('gachaConfig').set({
+        name: $('ga-name').value.trim() || GACHA_DEFAULTS.name,
+        img: $('ga-img').value.trim() || null,
+        stock, price, rate, pity, refundTiers,
+        directPrice: parseInt($('ga-direct').value, 10) || 0,
+        active: $('ga-active').checked
+    }).then(() => showToast('✅ ບັນທຶກການຕັ້ງຄ່າແລ້ວ!'))
+      .catch(err => showToast('❌ ' + err.message, 'warning'));
 }
