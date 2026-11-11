@@ -1587,7 +1587,7 @@ async function copyOrderText(key) {
 
 
 /* =====================================================================
-   GACHA BOX (ກ່ອງສຸ່ມ) — Limited Edition shirt with pity guarantee
+   GACHA BOX (ກ່ອງສຸ່ມ) — Limited Edition prize with pity guarantee
    Firebase paths:
      gachaConfig                  -> { price, rate, pity, refundTiers[{amount,weight}], stock, directPrice, name, img, active }
      users/{username}             -> + gachaPity (misses in a row), gachaSpins (total)
@@ -1599,18 +1599,19 @@ async function copyOrderText(key) {
    ===================================================================== */
 const GACHA_DEFAULTS = {
     price: 10000,        // Point per spin
-    rate: 0.015,         // chance of the shirt per spin (1.5%)
+    rate: 0.015,         // chance of the prize per spin (1.5%)
     pity: 40,            // guaranteed on this spin if no win before
-    // ຖ້າບໍ່ໄດ້ເສື້ອ: ສຸ່ມວ່າຈະໄດ້ Point ຄືນເທົ່າໃດ (weight = ນ້ຳໜັກໂອກາດ, ລວມເທົ່າໃດກໍ່ໄດ້)
+    // ຖ້າບໍ່ໄດ້ຂອງລາງວັນ: ສຸ່ມວ່າຈະໄດ້ Point ຄືນເທົ່າໃດ (weight = ນ້ຳໜັກໂອກາດ, ລວມເທົ່າໃດກໍ່ໄດ້)
     // ຄ່າເລີ່ມຕົ້ນ: ໄດ້ຄືນ 20% ຂອງຄັ້ງທີ່ພາດ (1,000 = 15%, 2,000 = 5%), ອີກ 80% ບໍ່ໄດ້ຄືນ, ຄ່າສະເລ່ຍ ≈ 250 Point
     refundTiers: [
         { amount: 0,    weight: 80 },
         { amount: 1000, weight: 15 },
         { amount: 2000, weight: 5 }
     ],
-    stock: 0,            // shirts left (0 = sold out until admin sets it)
+    stock: 0,            // prizes left (0 = sold out until admin sets it)
     directPrice: 0,      // normal shop price, shown for comparison (0 = hide)
-    name: 'ເສື້ອ Limited Edition',
+    name: 'ຂອງລາງວັນ Limited Edition',   // ຊື່ທີ່ສະແດງກ່ອນສຸ່ມ (ບໍ່ບອກວ່າແມ່ນຫຍັງ)
+    revealName: 'ເສື້ອ Limited Edition',  // ຊື່ທີ່ເປີດເຜີຍ ສະເພາະຕອນຖືກລາງວັນ
     img: '',
     active: true
 };
@@ -1708,14 +1709,14 @@ function renderGacha() {
             ${c.img ? `<img src="${escapeHTML(c.img)}" alt="" onerror="this.style.display='none'">` : ''}
             <div>
                 <div class="gacha-prize-name">${escapeHTML(c.name)}</div>
-                <div class="history-time">${soldOut ? '❌ ໝົດແລ້ວ' : `ເຫຼືອ ${formatMoney(c.stock)} ໂຕ`}</div>
+                <div class="history-time">${soldOut ? '❌ ໝົດແລ້ວ' : `ເຫຼືອ ${formatMoney(c.stock)} ຊິ້ນ`}</div>
             </div>
         </div>
         <div class="gacha-rules">
             <div>💎 ສຸ່ມຄັ້ງລະ <b>${formatMoney(c.price)}</b> Point</div>
-            <div>🎯 ໂອກາດໄດ້ເສື້ອ <b>${+(c.rate * 100).toFixed(2)}%</b> ຕໍ່ຄັ້ງ</div>
-            <div>🛡️ ສຸ່ມຄັ້ງທີ <b>${c.pity}</b> ການັນຕີໄດ້ເສື້ອແນ່ນອນ (ຈ່າຍສູງສຸດ ≈ ${formatMoney(gachaWorstCase())} Point)</div>
-            <div>↩️ ຖ້າບໍ່ໄດ້ເສື້ອ ມີໂອກາດໄດ້ Point ຄືນ <b>${+rf.chance.toFixed(1)}%</b></div>
+            <div>🎯 ໂອກາດໄດ້ຂອງລາງວັນ <b>${+(c.rate * 100).toFixed(2)}%</b> ຕໍ່ຄັ້ງ</div>
+            <div>🛡️ ສຸ່ມຄັ້ງທີ <b>${c.pity}</b> ການັນຕີໄດ້ຂອງລາງວັນແນ່ນອນ (ຈ່າຍສູງສຸດ ≈ ${formatMoney(gachaWorstCase())} Point)</div>
+            <div>↩️ ຖ້າບໍ່ໄດ້ຂອງລາງວັນ ມີໂອກາດໄດ້ Point ຄືນ <b>${+rf.chance.toFixed(1)}%</b></div>
             <div class="history-time" style="padding-left:22px;">${rf.list.filter(t => t.amount > 0).map(t => `${formatMoney(t.amount)} Point (${+t.pct.toFixed(1)}%)`).join(' · ')}</div>
             ${c.directPrice ? `<div>🛒 ຊື້ຕົງໜ້າເວັບ: <b>${formatMoney(c.directPrice)}</b> ກີບ</div>` : ''}
         </div>
@@ -1728,11 +1729,11 @@ function renderGacha() {
     const spinBtn = $('gacha-spin-btn');
     spinBtn.disabled = gachaBusy || soldOut;
     spinBtn.style.opacity = spinBtn.disabled ? '0.5' : '1';
-    spinBtn.textContent = gachaBusy ? '⏳ ກຳລັງສຸ່ມ...' : soldOut ? '❌ ເສື້ອໝົດແລ້ວ' : `🎁 ສຸ່ມ (${formatMoney(c.price)} Point)`;
+    spinBtn.textContent = gachaBusy ? '⏳ ກຳລັງສຸ່ມ...' : soldOut ? '❌ ຂອງລາງວັນໝົດແລ້ວ' : `🎁 ສຸ່ມ (${formatMoney(c.price)} Point)`;
 
     $('gacha-unclaimed').innerHTML = unclaimed.map(w => `
         <div class="gacha-unclaimed-row">
-            <span>🎉 ມີເສື້ອທີ່ຍັງບໍ່ໄດ້ຮັບ (${formatDate(w.time)})</span>
+            <span>🎉 ມີ ${escapeHTML(w.prize || gachaCfg.revealName)} ທີ່ຍັງບໍ່ໄດ້ຮັບ (${formatDate(w.time)})</span>
             <button class="pa-btn pa-add" onclick="openGachaClaim('${w.key}')">ຮັບເລີຍ</button>
         </div>`).join('');
 
@@ -1741,7 +1742,7 @@ function renderGacha() {
         ${gachaLogs.map(l => `
             <div class="history-row">
                 <div>
-                    <div class="history-type">${l.win ? (l.guaranteed ? '🛡️ ໄດ້ເສື້ອ (ການັນຕີ)' : '🎉 ໄດ້ເສື້ອ!') : '😢 ບໍ່ໄດ້'}</div>
+                    <div class="history-type">${l.win ? (l.guaranteed ? '🛡️ ໄດ້ຂອງລາງວັນ (ການັນຕີ)' : '🎉 ໄດ້ຂອງລາງວັນ!') : '😢 ບໍ່ໄດ້'}</div>
                     <div class="history-time">${formatDate(l.time)} · ຄັ້ງທີ ${l.spinNo}</div>
                 </div>
                 <div style="text-align:right;">
@@ -1776,7 +1777,7 @@ async function gachaSpin() {
         return;
     }
     const cfg = { ...gachaCfg };
-    if (!cfg.active || (cfg.stock || 0) <= 0) { showToast('❌ ເສື້ອໝົດແລ້ວ', 'warning'); return; }
+    if (!cfg.active || (cfg.stock || 0) <= 0) { showToast('❌ ຂອງລາງວັນໝົດແລ້ວ', 'warning'); return; }
     if ((currentUser.points || 0) < cfg.price) {
         showToast('⚠️ Point ບໍ່ພໍ ກະລຸນາເຕີມ Point ກ່ອນ', 'warning');
         $('gacha-modal').style.display = 'none';
@@ -1784,7 +1785,7 @@ async function gachaSpin() {
         return;
     }
     const ok = await confirmDialog(
-        `ສຸ່ມ 1 ຄັ້ງ ໃຊ້ ${formatMoney(cfg.price)} Point\nຖ້າບໍ່ໄດ້ເສື້ອ ມີໂອກາດໄດ້ Point ຄືນ ${+gachaTierStats(cfg).chance.toFixed(1)}%`,
+        `ສຸ່ມ 1 ຄັ້ງ ໃຊ້ ${formatMoney(cfg.price)} Point\nຖ້າບໍ່ໄດ້ຂອງລາງວັນ ມີໂອກາດໄດ້ Point ຄືນ ${+gachaTierStats(cfg).chance.toFixed(1)}%`,
         { title: 'ຢືນຢັນການສຸ່ມ', icon: '🎁', okText: 'ສຸ່ມເລີຍ' }
     );
     if (!ok) return;
@@ -1825,7 +1826,7 @@ async function gachaSpin() {
             amount: -(cfg.price - refund),
             type: 'gacha',
             balance: newBalance,
-            note: outcome.win ? 'ກ່ອງສຸ່ມ: ໄດ້ເສື້ອ' : 'ກ່ອງສຸ່ມ: ບໍ່ໄດ້ເສື້ອ (ຄືນ ' + refund + ' Point)',
+            note: outcome.win ? 'ກ່ອງສຸ່ມ: ໄດ້ຂອງລາງວັນ' : 'ກ່ອງສຸ່ມ: ບໍ່ໄດ້ຂອງລາງວັນ (ຄືນ ' + refund + ' Point)',
             time: firebase.database.ServerValue.TIMESTAMP
         }).catch(() => {});
         database.ref('gachaLogs/' + username).push({
@@ -1840,7 +1841,7 @@ async function gachaSpin() {
                 time: firebase.database.ServerValue.TIMESTAMP,
                 guaranteed: outcome.guaranteed,
                 claimed: false,
-                prize: cfg.name,
+                prize: cfg.revealName || cfg.name,
                 img: cfg.img || null
             });
             database.ref('gachaConfig/stock').transaction(c => (c || 0) > 0 ? c - 1 : c);
@@ -1854,11 +1855,11 @@ async function gachaSpin() {
 
         if (outcome.win) {
             box.textContent = '👕';
-            $('gacha-result').innerHTML = `<div class="gacha-win">🎉 ຍິນດີນຳ! ເຈົ້າໄດ້ ${escapeHTML(cfg.name)}${outcome.guaranteed ? '<div class="history-time">🛡️ ຈາກການັນຕີ</div>' : ''}</div>`;
+            $('gacha-result').innerHTML = `<div class="gacha-win">🎉 ຍິນດີນຳ! ເຈົ້າໄດ້ ${escapeHTML(cfg.revealName || cfg.name)}${outcome.guaranteed ? '<div class="history-time">🛡️ ຈາກການັນຕີ</div>' : ''}</div>`;
             openGachaClaim(winRef.key);
         } else {
             box.textContent = '📦';
-            $('gacha-result').innerHTML = `<div class="gacha-miss">😢 ບໍ່ໄດ້ເສື້ອ · ${refund > 0 ? `🎉 ໄດ້ Point ຄືນ ${formatMoney(refund)}` : 'ບໍ່ໄດ້ Point ຄືນ'}<div class="history-time">ອີກ ${Math.max(cfg.pity - outcome.spinNo, 1)} ຄັ້ງການັນຕີ</div></div>`;
+            $('gacha-result').innerHTML = `<div class="gacha-miss">😢 ບໍ່ໄດ້ຂອງລາງວັນ · ${refund > 0 ? `🎉 ໄດ້ Point ຄືນ ${formatMoney(refund)}` : 'ບໍ່ໄດ້ Point ຄືນ'}<div class="history-time">ອີກ ${Math.max(cfg.pity - outcome.spinNo, 1)} ຄັ້ງການັນຕີ</div></div>`;
         }
     } catch (err) {
         showToast('❌ ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'warning');
@@ -1868,9 +1869,11 @@ async function gachaSpin() {
     }
 }
 
-/* ---------- claim the shirt (shipping info + order + WhatsApp) ---------- */
+/* ---------- claim the prize (shipping info + order + WhatsApp) ---------- */
 function openGachaClaim(key) {
     $('gc-win-key').value = key;
+    const w = gachaWins.find(x => x.key === key);
+    $('gc-title').textContent = `🎉 ຮັບ${(w && w.prize) || gachaCfg.revealName || 'ຂອງລາງວັນ'}ຂອງເຈົ້າ`;
     if (currentUser && currentUser.phone && !$('gc-phone').value) $('gc-phone').value = currentUser.phone;
     $('gacha-claim-modal').style.display = 'flex';
 }
@@ -1888,10 +1891,10 @@ $('gacha-claim-form').addEventListener('submit', async (e) => {
         // claimed false -> true exactly once
         const t = await database.ref(`gachaWins/${currentUsername}/${key}/claimed`)
             .transaction(c => c ? undefined : true);
-        if (!t.committed) { showToast('⚠️ ເສື້ອນີ້ຖືກຮັບໄປແລ້ວ', 'warning'); return; }
+        if (!t.committed) { showToast('⚠️ ຂອງລາງວັນນີ້ຖືກຮັບໄປແລ້ວ', 'warning'); return; }
 
         const win = gachaWins.find(w => w.key === key) || {};
-        const prize = win.prize || gachaCfg.name;
+        const prize = win.prize || gachaCfg.revealName || gachaCfg.name;
         const orderNo = makeOrderNo();
         await database.ref('orders/' + currentUsername).push({
             orderNo,
@@ -1904,7 +1907,7 @@ $('gacha-claim-form').addEventListener('submit', async (e) => {
         database.ref(`gachaWins/${currentUsername}/${key}`).update({ orderNo }).catch(() => {});
 
         const msg =
-            `*🎁 ມີຜູ້ໄດ້ເສື້ອຈາກກ່ອງສຸ່ມ!*\n\n` +
+            `*🎁 ມີຜູ້ໄດ້ຂອງລາງວັນຈາກກ່ອງສຸ່ມ!*\n\n` +
             `*ເລກທີ່ອໍເດີ້:* ${orderNo}\n` +
             `*ຂອງລາງວັນ:* ${prize}${win.guaranteed ? ' (ການັນຕີ 🛡️)' : ''}\n` +
             `*ຊື່ຜູ້ໃຊ້:* ${currentUsername}\n\n` +
@@ -1934,14 +1937,15 @@ function renderGachaAdmin() {
     box.innerHTML = `
         <div style="border-top:1px solid #2d2d2d;margin-top:16px;padding-top:14px;">
             <label style="color:#ffaa00;font-size:14px;display:block;margin-bottom:10px;"><b>🛠️ ຕັ້ງຄ່າກ່ອງສຸ່ມ (ແອັດມິນ)</b></label>
-            ${field('ga-name', 'ຊື່ເສື້ອ', c.name, 'text')}
-            ${field('ga-img', 'ລິ້ງຮູບເສື້ອ', c.img || '', 'text')}
-            ${field('ga-stock', 'ຈຳນວນເສື້ອທີ່ເຫຼືອ', c.stock)}
+            ${field('ga-name', 'ຊື່ຂອງລາງວັນ (ສະແດງກ່ອນສຸ່ມ)', c.name, 'text')}
+            ${field('ga-reveal', 'ຊື່ທີ່ເປີດເຜີຍຕອນຖືກ (ເຊັ່ນ ເສື້ອ ...)', c.revealName || '', 'text')}
+            ${field('ga-img', 'ລິ້ງຮູບຂອງລາງວັນ', c.img || '', 'text')}
+            ${field('ga-stock', 'ຈຳນວນຂອງລາງວັນທີ່ເຫຼືອ', c.stock)}
             ${field('ga-price', 'ລາຄາສຸ່ມ (Point)', c.price)}
-            ${field('ga-rate', 'ໂອກາດໄດ້ເສື້ອ (%)', +(c.rate * 100).toFixed(2), 'number', '0.01')}
+            ${field('ga-rate', 'ໂອກາດໄດ້ຂອງລາງວັນ (%)', +(c.rate * 100).toFixed(2), 'number', '0.01')}
             ${field('ga-pity', 'ການັນຕີຄັ້ງທີ', c.pity)}
             <div class="form-group">
-                <label for="ga-tiers">↩️ Point ຄືນເມື່ອບໍ່ໄດ້ເສື້ອ (1 ແຖວ = ຈຳນວນ:ນ້ຳໜັກໂອກາດ)</label>
+                <label for="ga-tiers">↩️ Point ຄືນເມື່ອບໍ່ໄດ້ຂອງລາງວັນ (1 ແຖວ = ຈຳນວນ:ນ້ຳໜັກໂອກາດ)</label>
                 <textarea id="ga-tiers" rows="6" oninput="updateGachaTiersPreview()">${escapeHTML(gachaTiers().map(t => t.amount + ':' + t.weight).join('\n'))}</textarea>
                 <small id="ga-tiers-preview" style="color:#888;font-size:12px;display:block;margin-top:4px;"></small>
             </div>
@@ -1993,6 +1997,7 @@ function saveGachaConfig() {
     }
     database.ref('gachaConfig').set({
         name: $('ga-name').value.trim() || GACHA_DEFAULTS.name,
+        revealName: $('ga-reveal').value.trim() || GACHA_DEFAULTS.revealName,
         img: $('ga-img').value.trim() || null,
         stock, price, rate, pity, refundTiers,
         directPrice: parseInt($('ga-direct').value, 10) || 0,
